@@ -79,6 +79,10 @@
 #define TIMEZONE_API_URL "http://api.timezonedb.com/v2.1/get-time-zone"
 #define WEATHER_API_KEY "XW2RDGD6XK432AF25BNK2A3C7"
 
+#ifndef WEATHER_API_URL
+	#define WEATHER_API_URL "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
+#endif
+
 #define MAX_RETRIES 3
 
 #endif
