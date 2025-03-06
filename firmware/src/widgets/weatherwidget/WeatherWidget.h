@@ -2,18 +2,24 @@
 #define WEATHERWIDGET_H
 
 #include "GlobalTime.h"
-#include "Utils.h"
 #include "WeatherDataModel.h"
 #include "Widget.h"
 #include "config_helper.h"
-#include <ArduinoJson.h>
-#include <HTTPClient.h>
-#include <TJpg_Decoder.h>
-#include <math.h>
+#include <TaskManager.h>
+
+#ifdef WEATHER_TEMPEST_FEED
+    #include "feeds/TempestFeed.h"
+#else
+    #include "feeds/VisualCrossingFeed.h"
+#endif
+
+#ifdef WEATHER_OPENWEATHERMAP_FEED
+	# include "feeds/OpenWeatherMapFeed.h"
+#endif
 
 class WeatherWidget : public Widget {
 public:
-    WeatherWidget(ScreenManager &manager);
+    WeatherWidget(ScreenManager &manager, ConfigManager &config);
     ~WeatherWidget() override;
     void setup() override;
     void update(bool force = false) override;
@@ -30,14 +36,22 @@ private:
     void singleWeatherDeg(int displayIndex);
     void weatherText(int displayIndex);
     void threeDayWeather(int displayIndex);
-    bool getWeatherData();
+    // bool getWeatherData();
     int getClockStamp();
     void configureColors();
+    WeatherFeed *createWeatherFeed();
+    // void preProcessResponse(int httpCode, String &response);
+    // void processResponse(int httpCode, const String &response);
 
     GlobalTime *m_time;
     int8_t m_mode;
+    int m_weatherUnits;
 
-    ScreenMode m_screenMode = Dark;
+#ifdef WEATHER_SCREEN_MODE
+    int m_screenMode = WEATHER_SCREEN_MODE;
+#else
+    int m_screenMode = Dark;
+#endif
     uint16_t m_foregroundColor;
     uint16_t m_backgroundColor;
     uint16_t m_invertedForegroundColor;
@@ -51,25 +65,25 @@ private:
     int m_clockStamp = 0;
 
     WeatherDataModel model;
+    WeatherFeed *weatherFeed;
 
 // This is a hack to support old config.h files that have WEATHER_LOCAION instead of LOCATION.
 #ifndef WEATHER_LOCATION
     #define WEATHER_LOCATION WEATHER_LOCAION
 #endif
 
-    const String weatherLocation = WEATHER_LOCATION;
-#ifdef WEATHER_UNITS_METRIC
-    const String weatherUnits = "metric";
-#else
-    const String weatherUnits = "us";
-#endif
-    const String weatherApiKey = WEATHER_API_KEY;
+    std::string m_weatherLocation = WEATHER_LOCATION;
 
-    const String httpRequestAddress = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/" +
-                                      weatherLocation + "/next3days?key=" + weatherApiKey + "&unitGroup=" + weatherUnits +
-                                      "&include=days,current&iconSet=icons1&lang=" + LOC_LANG;
+    // const String weatherApiKey = WEATHER_API_KEY;
 
     const int MODE_HIGHS = 0;
     const int MODE_LOWS = 1;
+
+#ifndef HIGH_LOW_INTERVAL
+    #define HIGH_LOW_INTERVAL 0
+#endif
+
+    int m_switchinterval = HIGH_LOW_INTERVAL;
+    unsigned long m_prevMillisSwitch = 0;
 };
 #endif // WEATHERWIDGET_H

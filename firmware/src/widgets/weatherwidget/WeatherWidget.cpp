@@ -6,20 +6,41 @@
 // make high/low an enum, if we even keep it (I strongly suggest just switching back
 // and forth between high and low every 10 seconds or something)
 // 3
-// factor out the JSON error handling (come on now)
-// 4
 // factor out the text wrapping (there's a utils for that already, if that doesn't work, why not?)
 
 #include "WeatherWidget.h"
+#include "WeatherTranslations.h"
 #include "icons.h"
+#include <ArduinoJson.h>
+#include <ArduinoLog.h>
 
-#include "config_helper.h"
-
-WeatherWidget::WeatherWidget(ScreenManager &manager) : Widget(manager) {
+WeatherWidget::WeatherWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
+    m_enabled = true; // Enabled by default
+    m_weatherUnits = 0;
+    m_config.addConfigBool("WeatherWidget", "weatherEnabled", &m_enabled, t_enableWidget);
+    config.addConfigString("WeatherWidget", "weatherLocation", &m_weatherLocation, 40, t_weatherLocation);
+    config.addConfigComboBox("WeatherWidget", "weatherUnits", &m_weatherUnits, t_temperatureUnits, t_temperatureUnit, true);
+    config.addConfigComboBox("WeatherWidget", "weatherScrMode", &m_screenMode, t_screenModes, t_screenMode, true);
+    config.addConfigInt("WeatherWidget", "weatherCycleHL", &m_switchinterval, t_weatherCycleHL, true);
+    Log.noticeln("WeatherWidget initialized, loc=%s, mode=%d", m_weatherLocation.c_str(), m_screenMode);
     m_mode = MODE_HIGHS;
+    weatherFeed = createWeatherFeed();
 }
 
 WeatherWidget::~WeatherWidget() {
+    delete weatherFeed;
+}
+
+WeatherFeed *WeatherWidget::createWeatherFeed() {
+#ifdef WEATHER_TEMPEST_FEED
+    return new TempestFeed(WEATHER_TEMPEST_API_KEY, WEATHER_TEMPEST_STATION_ID, m_weatherUnits, WEATHER_TEMPEST_STATION_NAME);
+#else
+    #ifdef WEATHER_OPENWEATHERMAP_FEED
+    return new OpenWeatherMapFeed(WEATHER_OPENWEATHERMAP_API_KEY, WEATHER_OPENWEATHERMAP_LAT, WEATHER_OPENWEATHERMAP_LON, m_weatherLocation);
+    #else
+    return new VisualCrossingFeed(WEATHER_VISUALCROSSING_API_KEY, m_weatherLocation);
+    #endif
+#endif
 }
 
 void WeatherWidget::changeMode() {
@@ -33,14 +54,14 @@ void WeatherWidget::changeMode() {
 void WeatherWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
     if (buttonId == BUTTON_OK && state == BTN_SHORT)
         changeMode();
+    if (buttonId == BUTTON_OK && state == BTN_MEDIUM)
+        update(true);
 }
 
 void WeatherWidget::setup() {
     m_time = GlobalTime::getInstance();
-#ifdef WEATHER_SCREEN_MODE
-    m_screenMode = WEATHER_SCREEN_MODE;
-#endif
     configureColors();
+    m_prevMillisSwitch = millis();
 }
 
 void WeatherWidget::draw(bool force) {
@@ -59,72 +80,28 @@ void WeatherWidget::draw(bool force) {
         threeDayWeather(4);
         model.setChangedStatus(false);
     }
+
+    if ((millis() - m_prevMillisSwitch >= (m_switchinterval * 1000)) && m_switchinterval > 0) {
+        m_prevMillisSwitch = millis();
+        m_mode++;
+        if (m_mode > MODE_LOWS) {
+            m_mode = MODE_HIGHS;
+        }
+        threeDayWeather(4);
+    }
 }
 
 void WeatherWidget::update(bool force) {
     if (force || m_weatherDelayPrev == 0 || (millis() - m_weatherDelayPrev) >= m_weatherDelay) {
-        setBusy(true);
         if (force) {
             int retry = 0;
-            while (!getWeatherData() && retry++ < MAX_RETRIES)
+            while (!weatherFeed->getWeatherData(model) && retry++ < MAX_RETRIES)
                 ;
         } else {
-            getWeatherData();
+            weatherFeed->getWeatherData(model);
         }
-        setBusy(false);
         m_weatherDelayPrev = millis();
     }
-}
-
-bool WeatherWidget::getWeatherData() {
-    HTTPClient http;
-    http.begin(httpRequestAddress);
-    int httpCode = http.GET();
-    if (httpCode > 0) {
-        // Check for the return code   TODO: factor out
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, http.getString());
-        http.end();
-
-        if (!error) {
-            model.setCityName(doc["resolvedAddress"].as<String>());
-            model.setCurrentTemperature(doc["currentConditions"]["temp"].as<float>());
-            model.setCurrentText(doc["days"][0]["description"].as<String>());
-
-            model.setCurrentIcon(doc["currentConditions"]["icon"].as<String>());
-            model.setTodayHigh(doc["days"][0]["tempmax"].as<float>());
-            model.setTodayLow(doc["days"][0]["tempmin"].as<float>());
-            for (int i = 0; i < 3; i++) {
-                model.setDayIcon(i, doc["days"][i + 1]["icon"].as<String>());
-                model.setDayHigh(i, doc["days"][i + 1]["tempmax"].as<float>());
-                model.setDayLow(i, doc["days"][i + 1]["tempmin"].as<float>());
-            }
-        } else {
-            // Handle JSON deserialization error
-            switch (error.code()) {
-            case DeserializationError::Ok:
-                Serial.print(F("Deserialization succeeded"));
-                break;
-            case DeserializationError::InvalidInput:
-                Serial.print(F("Invalid input!"));
-                break;
-            case DeserializationError::NoMemory:
-                Serial.print(F("Not enough memory"));
-                break;
-            default:
-                Serial.print(F("Deserialization failed"));
-                break;
-            }
-
-            return false;
-        }
-    } else {
-        // Handle HTTP request error
-        Serial.printf("HTTP request failed, error: %s\n", http.errorToString(httpCode).c_str());
-        http.end();
-        return false;
-    }
-    return true;
 }
 
 void WeatherWidget::displayClock(int displayIndex) {
@@ -184,7 +161,7 @@ void WeatherWidget::drawWeatherIcon(int displayIndex, const String &condition, i
         iconStart = m_screenMode == Light ? cloudsW_start : cloudsB_start;
         iconEnd = m_screenMode == Light ? cloudsW_end : cloudsB_end;
     } else {
-        Serial.println("unknown weather icon:" + condition);
+        Log.warningln("Unknown weather icon: %s", condition.c_str());
     }
 
     const int size = iconEnd - iconStart;
@@ -230,14 +207,14 @@ void WeatherWidget::weatherText(int displayIndex) {
     String message = model.getCurrentText() + " ";
     String messageArr[4];
     int variableRangeS = 0;
-    int variableRangeE = 18;
+    int variableRangeE = 24;
     for (int i = 0; i < 4; i++) {
         while (message.substring(variableRangeE - 1, variableRangeE) != " ") {
             variableRangeE--;
         }
         messageArr[i] = message.substring(variableRangeS, variableRangeE);
         variableRangeS = variableRangeE;
-        variableRangeE = variableRangeS + 18;
+        variableRangeE = variableRangeS + 24;
     }
     //=== OVERFLOW END ==============================
 
@@ -246,9 +223,9 @@ void WeatherWidget::weatherText(int displayIndex) {
     cityName.remove(cityName.indexOf(",", 0));
 
     m_manager.setFontColor(m_foregroundColor);
-    m_manager.drawFittedString(cityName, centre, 80, 210, 50, Align::MiddleCenter);
+    m_manager.drawFittedString(cityName, centre, 70, 195, 50, Align::MiddleCenter);
 
-    auto y = 125;
+    auto y = 118;
     for (auto i = 0; i < 4; i++) {
         m_manager.drawCentreString(messageArr[i], centre, y, 15);
         y += 25;
@@ -295,7 +272,7 @@ void WeatherWidget::threeDayWeather(int displayIndex) {
         drawWeatherIcon(displayIndex, model.getDayIcon(i), x - 30, 40, 4);
         m_manager.drawCentreString(temps[i], x, 122, temperatureFontSize);
 
-        String shortDayName = LOC_WEEKDAY[weekday(m_time->getUnixEpoch() + (86400 * (i + 1))) - 1];
+        String shortDayName = i18n(t_weekdays, weekday(m_time->getUnixEpoch() + (86400 * (i + 1))) - 1);
         shortDayName.remove(3);
         m_manager.drawString(shortDayName, x, 154, fontSize, Align::MiddleCenter);
     }
