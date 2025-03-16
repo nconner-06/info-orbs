@@ -1,4 +1,5 @@
 #include "ClockWidget.h"
+#include "ArduinoLog.h"
 #include "ClockTranslations.h"
 
 ClockWidget::ClockWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
@@ -276,7 +277,7 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
     }
     uint32_t end = millis();
 #ifdef CLOCK_DEBUG
-    Serial.printf("displayDigit(%s) took %dms\n", digit, end - start);
+    Log.infoln("displayDigit(%s) took %dms", digit.c_str(), end - start);
 #endif
 }
 

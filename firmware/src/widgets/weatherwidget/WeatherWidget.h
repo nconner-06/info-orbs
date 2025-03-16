@@ -7,6 +7,11 @@
 #include "config_helper.h"
 #include <TaskManager.h>
 
+#ifdef WEATHER_TEMPEST_FEED
+    #include "feeds/TempestFeed.h"
+#else
+    #include "feeds/VisualCrossingFeed.h"
+#endif
 class WeatherWidget : public Widget {
 public:
     WeatherWidget(ScreenManager &manager, ConfigManager &config);
@@ -26,14 +31,19 @@ private:
     void singleWeatherDeg(int displayIndex);
     void weatherText(int displayIndex);
     void threeDayWeather(int displayIndex);
-    bool getWeatherData();
+    // bool getWeatherData();
     int getClockStamp();
     void configureColors();
-    void preProcessResponse(int httpCode, String &response);
-    void processResponse(int httpCode, const String &response);
+    WeatherFeed *createWeatherFeed();
 
     GlobalTime *m_time;
     int8_t m_mode;
+
+#ifdef WEATHER_UNITS_METRIC
+    int m_weatherUnits = 0;
+#else
+    int m_weatherUnits = 1;
+#endif
 
 #ifdef WEATHER_SCREEN_MODE
     int m_screenMode = WEATHER_SCREEN_MODE;
@@ -53,21 +63,7 @@ private:
     int m_clockStamp = 0;
 
     WeatherDataModel model;
-
-// This is a hack to support old config.h files that have WEATHER_LOCAION instead of LOCATION.
-#ifndef WEATHER_LOCATION
-    #define WEATHER_LOCATION WEATHER_LOCAION
-#endif
-
-    std::string m_weatherLocation = WEATHER_LOCATION;
-
-#ifdef WEATHER_UNITS_METRIC
-    int m_weatherUnits = 0;
-#else
-    int m_weatherUnits = 1;
-#endif
-
-    const String weatherApiKey = WEATHER_API_KEY;
+    WeatherFeed *weatherFeed;
 
     const int MODE_HIGHS = 0;
     const int MODE_LOWS = 1;
