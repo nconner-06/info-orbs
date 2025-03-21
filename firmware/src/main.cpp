@@ -1,6 +1,8 @@
+#include "5zonewidget/5ZoneWidget.h"
 #include "GlobalResources.h"
 #include "MainHelper.h"
 #include "clockwidget/ClockWidget.h"
+#include "matrixwidget/MatrixWidget.h"
 #include "mqttwidget/MQTTWidget.h"
 #include "parqetwidget/ParqetWidget.h"
 #include "stockwidget/StockWidget.h"
@@ -21,16 +23,18 @@ WidgetSet *widgetSet{nullptr};
 void addWidgets() {
     // Always add clock
     widgetSet->add(new ClockWidget(*sm, *config));
-#ifdef INCLUDE_WEATHER
+
+#if INCLUDE_WEATHER != WIDGET_DISABLED
     widgetSet->add(new WeatherWidget(*sm, *config));
 #endif
-#ifdef INCLUDE_STOCK
+
+#if INCLUDE_STOCK != WIDGET_DISABLED
     widgetSet->add(new StockWidget(*sm, *config));
 #endif
-#ifdef INCLUDE_PARQET
+#if INCLUDE_PARQET != WIDGET_DISABLED
     widgetSet->add(new ParqetWidget(*sm, *config));
 #endif
-#ifdef INCLUDE_WEBDATA
+#if INCLUDE_WEBDATA != WIDGET_DISABLED
     #ifdef WEB_DATA_WIDGET_URL
     widgetSet->add(new WebDataWidget(*sm, *config, WEB_DATA_WIDGET_URL));
     #endif
@@ -38,8 +42,14 @@ void addWidgets() {
     widgetSet->add(new WebDataWidget(*sm, *config, WEB_DATA_STOCK_WIDGET_URL));
     #endif
 #endif
-#ifdef INCLUDE_MQTT
+#if INCLUDE_MQTT != WIDGET_DISABLED
     widgetSet->add(new MQTTWidget(*sm, *config));
+#endif
+#if INCLUDE_5ZONE != WIDGET_DISABLED
+    widgetSet->add(new FiveZoneWidget(*sm, *config));
+#endif
+#if INCLUDE_MATRIXSCREEN != WIDGET_DISABLED
+    widgetSet->add(new MatrixWidget(*sm, *config));
 #endif
 }
 

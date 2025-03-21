@@ -25,6 +25,7 @@ enum ClockFormat {
 class GlobalTime {
 public:
     static GlobalTime *getInstance();
+    static time_t getUnixEpochIfAvailable();
 
     void updateTime(bool force = false);
     void getHourAndMinute(int &hour, int &minute);
@@ -45,6 +46,7 @@ public:
     bool isPM();
     bool getFormat24Hour();
     bool setFormat24Hour(bool format24hour);
+    int getTimeZoneOffset();
 
 private:
     GlobalTime();
@@ -52,7 +54,7 @@ private:
 
     static GlobalTime *m_instance;
 
-    time_t m_unixEpoch;
+    time_t m_unixEpoch = 0;
     int m_hour = 0;
     int m_hour24 = 0;
     int m_minute = 0;

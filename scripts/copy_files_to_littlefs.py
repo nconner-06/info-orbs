@@ -1,7 +1,7 @@
 ###########################################################################################################
 # This script will automatically be called by PlatformIO during the build process (as pre-action script)
 # It is responsible for copying the correct images/files to the LittleFS directory based
-# on the buildflags and config.h defines.
+# on the buildflags and config.system.h and config.h defines.
 #
 # You do NOT need to run it manually
 ###########################################################################################################
@@ -11,6 +11,7 @@ from SCons.Script import Import
 
 # Extract macros from the config header file
 config_header_path = "firmware/config/config.h"
+config_system_header_path = "firmware/config/config.system.h"
 build_dir = "build"
 out_dir = os.path.join(build_dir, "littlefs")
 clear_out_dir = True
@@ -137,8 +138,12 @@ def action():
     cpp_defines = {flag[2:].split("=")[0].strip(): flag[2:].split("=")[1].strip() if "=" in flag else None for flag in
                    build_flags if flag.startswith("-D")}
 
-    # Extract macros from the config header file
-    header_macros = extract_macros_with_values(config_header_path)
+    # Extract macros from config.system.h
+    header_macros = extract_macros_with_values(config_system_header_path)
+
+    # If config.h exists, extract macros from it and override any existing macros
+    if os.path.exists(config_header_path):
+        header_macros.update(extract_macros_with_values(config_header_path))
 
     # Combine all macros
     all_macros = {**header_macros, **cpp_defines}

@@ -14,7 +14,12 @@
 
 # Arduino libraries (if installed in the project directory)
 libraries/
+
+# Local configuration and other untracked files
 firmware/config/config.h
+*&&&*
+
+
 .pio
 
 # VS Code
