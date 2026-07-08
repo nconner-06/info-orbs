@@ -3,13 +3,13 @@
 
 // Include any necessary libraries here
 #include "config_helper.h"
+#include "pngle.h"
 #include "ttf-fonts.h"
 #include <OpenFontRender.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
 #include <math.h>
-#include "pngle.h"
 
 #define NUM_SCREENS 5
 

@@ -23,7 +23,7 @@ bool TempestFeed::getWeatherData(WeatherDataModel &model) {
 
     String httpRequestAddress = String(m_proxyUrl.c_str()) + "?station_id=" + String(m_stationId.c_str()) +
                                 "&units_temp=" + tempUnits + "&units_wind=mph&units_pressure=mb&units_precip=in&units_distance=mi&api_key=" + apiKey;
-    
+
     String filter = "";
 
     auto task = TaskFactory::createHttpGetTask(
