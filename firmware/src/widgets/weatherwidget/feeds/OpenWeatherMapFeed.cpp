@@ -44,8 +44,7 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
     filter = jfilter.as<String>();
 
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, filter, [this, &model](int httpCode, const String &response) 
-        { processResponse(httpCode, response, model); } );
+        httpRequestAddress, filter, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");

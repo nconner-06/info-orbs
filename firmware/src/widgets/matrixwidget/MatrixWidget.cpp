@@ -49,7 +49,6 @@ void MatrixWidget::draw(bool force) {
 }
 
 void MatrixWidget::onLeave(bool force) {
-
 }
 
 void MatrixWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
