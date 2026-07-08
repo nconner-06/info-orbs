@@ -3,6 +3,7 @@
 #include "ConfigManager.h"
 #include "Translations.h"
 #include "config_helper.h"
+#include "esp_sntp.h"
 #include <ArduinoJson.h>
 #include <ArduinoLog.h>
 
@@ -10,18 +11,20 @@ GlobalTime *GlobalTime::m_instance = nullptr;
 
 GlobalTime::GlobalTime() {
     ConfigManager *cm = ConfigManager::getInstance();
-    m_timezoneLocation = cm->getConfigString("timezoneLoc", m_timezoneLocation); // config added in MainHelper
+    m_timezone = cm->getConfigInt("timezone", m_timezone);
     int clockFormat = cm->getConfigInt("clockFormat", CLOCK_FORMAT); // config added in ClockWidget
     m_ntpServer = cm->getConfigString("ntpServer", m_ntpServer); // config added in MainHelper
-    Log.infoln("GlobalTime initialized, tzLoc=%s, clockFormat=%d, ntpServer=%s", m_timezoneLocation.c_str(), clockFormat, m_ntpServer.c_str());
+    Log.infoln("GlobalTime initialized, tzLoc=%s, clockFormat=%d, ntpServer=%s", tz_list[m_timezone].c_str(), clockFormat, m_ntpServer.c_str());
     m_format24hour = (clockFormat == CLOCK_FORMAT_24_HOUR);
-    m_timeClient = new NTPClient(m_udp, m_ntpServer.c_str(), 0, m_updateInterval);
-    m_timeClient->begin();
+
+    //    sntp_set_sync_interval(12 * 60 * 60 * 1000UL); // 12 hours
+    struct tm timeinfo;
+    configTzTime("etc/utc", m_ntpServer.c_str());
+    if (!getLocalTime(&timeinfo))
+        Log.errorln("Error getting time from NTP server (UTC)");
 }
 
-GlobalTime::~GlobalTime() {
-    delete m_timeClient;
-}
+GlobalTime::~GlobalTime() {}
 
 GlobalTime *GlobalTime::getInstance() {
     if (m_instance == nullptr) {
@@ -35,157 +38,123 @@ time_t GlobalTime::getUnixEpochIfAvailable() {
 }
 
 void GlobalTime::updateTime(bool force) {
-    if (force || millis() - m_updateTimer > m_oneSecond) {
-        m_updateTimer = millis();
-        m_timeClient->update();
-        if (m_timeClient->isTimeSet()) {
-            // NTP time is valid
-            if (m_timeZoneOffset == -1 || (m_nextTimeZoneUpdate > 0 && m_unixEpoch > m_nextTimeZoneUpdate)) {
-                getTimeZoneOffsetFromAPI();
-            }
-            m_unixEpoch = m_timeClient->getEpochTime();
-            m_minute = minute(m_unixEpoch);
-            if (m_format24hour) {
-                m_hour = hour(m_unixEpoch);
-            } else {
-                m_hour = hourFormat12(m_unixEpoch);
-            }
-            m_hour24 = hour(m_unixEpoch);
-            m_second = second(m_unixEpoch);
+    struct tm tm_UTC;
+    struct tm tm_local;
+    if (force || millis() - m_updateRTC > m_oneHour) {
+        m_updateRTC = millis();
+        setenv("TZ", "UTC0", 1);
+        tzset();
+        if (!getLocalTime(&tm_UTC))
+            Log.errorln("Error getting time for UTC");
+        rtc.setTimeStruct(tm_UTC);
+        const int l_utc = (tm_UTC.tm_hour * 3600) + (tm_UTC.tm_min * 60);
 
-            m_day = day(m_unixEpoch);
-            m_month = month(m_unixEpoch);
-            m_monthName = i18n(t_months, m_month - 1);
-            m_year = year(m_unixEpoch);
-            m_weekday = i18n(t_weekdays, weekday(m_unixEpoch) - 1);
-            m_time = String(m_hour) + ":" + (m_minute < 10 ? "0" + String(m_minute) : String(m_minute));
-        }
+        // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+        m_timezonePosix = tz_info[m_timezone];
+        setenv("TZ", m_timezonePosix.c_str(), 1);
+        tzset();
+        if (!getLocalTime(&tm_local))
+            Log.errorln("Error getting for time Local");
+        const int l_loc = (tm_local.tm_hour * 3600) + (tm_local.tm_min * 60);
+
+#ifdef GT_DEBUG
+        Log.infoln("GT : %i, %i", l_utc, l_loc);
+#endif
+        m_timeZoneOffset = l_loc - l_utc;
     }
 }
 
+int GlobalTime::getDayOfWeek() {
+    return rtc.getDayofWeek();
+}
+
 void GlobalTime::getHourAndMinute(int &hour, int &minute) {
-    hour = m_hour;
-    minute = m_minute;
+    hour = (m_format24hour ? rtc.getHour(true) : rtc.getHour());
+    minute = rtc.getMinute();
 }
 
 int GlobalTime::getHour() {
-    return m_hour;
+    return (m_format24hour ? rtc.getHour(true) : rtc.getHour());
 }
 
 int GlobalTime::getHour24() {
-    return m_hour24;
+    return rtc.getHour(true);
 }
 
 String GlobalTime::getHourPadded() {
-    if (m_hour < 10) {
-        return "0" + String(m_hour);
+    if (rtc.getHour(true) < 10) {
+        return "0" + String(rtc.getHour(true));
     } else {
-        return String(m_hour);
+        return String(rtc.getHour(true));
     }
 }
 
 int GlobalTime::getMinute() {
-    return m_minute;
+    return rtc.getMinute();
 }
 
 String GlobalTime::getMinutePadded() {
-    if (m_minute < 10) {
-        return "0" + String(m_minute);
+    if (rtc.getMinute() < 10) {
+        return "0" + String(rtc.getMinute());
     } else {
-        return String(m_minute);
+        return String(rtc.getMinute());
+    }
+}
+
+String GlobalTime::getSecondPadded() {
+    if (rtc.getSecond() < 10) {
+        return "0" + String(rtc.getSecond());
+    } else {
+        return String(rtc.getSecond());
     }
 }
 
 int GlobalTime::getSecond() {
-    return m_second;
+    return rtc.getSecond();
 }
 
 time_t GlobalTime::getUnixEpoch() {
-    return m_unixEpoch;
+    return rtc.getEpoch();
 }
 
 int GlobalTime::getDay() {
-    return m_day;
+    return rtc.getDay();
 }
 
 int GlobalTime::getMonth() {
-    return m_month;
+    return rtc.getMonth();
 }
 
 String GlobalTime::getMonthName() {
-    return m_monthName;
+    return i18n(t_months, rtc.getMonth());
 }
 
 int GlobalTime::getYear() {
-    return m_year;
+    return rtc.getYear();
 }
 
 String GlobalTime::getTime() {
-    return m_time;
+    return String(m_format24hour ? rtc.getHour(true) : rtc.getHour()) + ":" + (rtc.getMinute() < 10 ? "0" + String(rtc.getMinute()) : String(rtc.getMinute()));
 }
 
 String GlobalTime::getWeekday() {
-    return m_weekday;
+    return i18n(t_weekdays, rtc.getDayofWeek());
 }
 
 String GlobalTime::getDayAndMonth() {
 #ifdef WEATHER_UNITS_METRIC
     String retVal = i18n(t_dayMonthFormat);
-    retVal.replace("%d", String(m_day));
-    retVal.replace("%B", m_monthName);
+    retVal.replace("%d", String(rtc.getDay()));
+    retVal.replace("%B", i18n(t_months, rtc.getMonth()));
     return retVal;
 #else
-    return m_monthName + " " + String(m_day);
+    return i18n(t_months, rtc.getMonth());
+    +" " + String(rtc.getDay());
 #endif
 }
 
-#include <HTTPClient.h> // Include the necessary header file
-
 bool GlobalTime::isPM() {
-    return hour(m_unixEpoch) >= 12;
-}
-
-void GlobalTime::getTimeZoneOffsetFromAPI() {
-    HTTPClient http;
-    http.begin(String(TIMEZONE_API_URL) + "?timeZone=" + String(m_timezoneLocation.c_str()));
-
-    int httpCode = http.GET();
-
-    if (httpCode > 0) {
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, http.getString());
-        if (!error) {
-            m_timeZoneOffset = doc["currentUtcOffset"]["seconds"].as<int>();
-            if (doc["hasDayLightSaving"].as<bool>()) {
-                String dstStart = doc["dstInterval"]["dstStart"].as<String>();
-                String dstEnd = doc["dstInterval"]["dstEnd"].as<String>();
-                bool dstActive = doc["isDayLightSavingActive"].as<bool>();
-                tmElements_t m_temp_t;
-                if (dstActive) {
-                    m_temp_t.Year = dstEnd.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstEnd.substring(5, 7).toInt();
-                    m_temp_t.Day = dstEnd.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstEnd.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstEnd.substring(14, 16).toInt();
-                    m_temp_t.Second = dstEnd.substring(17, 19).toInt();
-                } else {
-                    m_temp_t.Year = dstStart.substring(0, 4).toInt() - 1970;
-                    m_temp_t.Month = dstStart.substring(5, 7).toInt();
-                    m_temp_t.Day = dstStart.substring(8, 10).toInt();
-                    m_temp_t.Hour = dstStart.substring(11, 13).toInt();
-                    m_temp_t.Minute = dstStart.substring(14, 16).toInt();
-                    m_temp_t.Second = dstStart.substring(17, 19).toInt();
-                }
-                m_nextTimeZoneUpdate = makeTime(m_temp_t) + random(5 * 60); // Randomize update by 5 minutes to avoid flooding the API;
-            }
-            Log.infoln("Timezone Offset from API: %d; Next timezone update: %d", m_timeZoneOffset, m_nextTimeZoneUpdate);
-            m_timeClient->setTimeOffset(m_timeZoneOffset);
-        } else {
-            Log.warningln("Deserialization error on timezone offset API response");
-        }
-    } else {
-        Log.warningln("Failed to get timezone offset from API");
-    }
+    return rtc.getHour(true) >= 12;
 }
 
 bool GlobalTime::getFormat24Hour() {

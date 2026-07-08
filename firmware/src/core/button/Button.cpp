@@ -1,5 +1,6 @@
 #include "Button.h"
 #include "config_helper.h"
+#include <ArduinoLog.h>
 
 /**
  * After calling begin() make sure to attach an interrupt handler in main.cpp that will call isrButtonChange()
@@ -24,9 +25,11 @@ void Button::isrButtonChange() {
         m_lastPinLevelChange = millis();
         if (m_pinLevel == RELEASED_LEVEL) {
             // Button was now released
-            // We now check if this was a short, medium or long press
+            // We now check if this was a short, medium, long, longer or very long press
             if (millis() - m_pressedSince >= VERY_LONG_PRESS_TIME) { // Added very long check
                 m_state = BTN_VERY_LONG;
+            } else if (millis() - m_pressedSince >= LONGER_PRESS_TIME) {
+                m_state = BTN_LONGER;
             } else if (millis() - m_pressedSince >= LONG_PRESS_TIME) {
                 m_state = BTN_LONG;
             } else if (millis() - m_pressedSince >= MEDIUM_PRESS_TIME) {
@@ -61,6 +64,10 @@ bool Button::pressedMedium() {
 
 bool Button::pressedLong() {
     return (m_state == BTN_LONG && has_changed());
+}
+
+bool Button::pressedLonger() {
+    return (m_state == BTN_LONGER && has_changed());
 }
 
 bool Button::pressedVeryLong() {

@@ -10,5 +10,7 @@ extern Translation t_stockChangeFormat;
 extern TranslationMulti<2> t_stockChangeFormats;
 extern Translation t_stock52week;
 extern Translation t_stockSwitchInterval;
+extern Translation t_showClockS;
+extern Translation t_showSecondTickS;
 
 #endif // STOCKTRANSLATIONS_H

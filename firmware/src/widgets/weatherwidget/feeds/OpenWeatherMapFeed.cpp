@@ -12,7 +12,7 @@ void OpenWeatherMapFeed::setupConfig(ConfigManager &config) {
     // Define the configuration for OpenWeatherMap variables
     config.addConfigString("WeatherWidget", "openWeatherLat", &m_lat_id, 10, t_openWeatherLat);
     config.addConfigString("WeatherWidget", "openWeatherLong", &m_long_id, 10, t_openWeatherLong);
-    config.addConfigString("WeatherWidget", "openWeatherName", &m_name, 15, t_openWeatherName);
+    config.addConfigString("WeatherWidget", "openWeatherName", &m_name, 25, t_openWeatherName);
 }
 
 bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
@@ -26,8 +26,26 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
                                 +"&appid=" + apiKey + "&units=" + weatherUnits + "&exclude=minutely,hourly,alerts&lang=" + lang +
                                 "&cnt=3";
 
+    JsonDocument jfilter;
+    jfilter["current"]["dt"] = true;
+    jfilter["current"]["temp"] = true;
+    jfilter["current"]["weather"][0]["description"] = true;
+    jfilter["current"]["weather"][0]["icon"] = true;
+
+    jfilter["daily"][0]["dt"] = true;
+    jfilter["daily"][0]["summary"] = true;
+    jfilter["daily"][0]["temp"]["min"] = true;
+    jfilter["daily"][0]["temp"]["max"] = true;
+    jfilter["daily"][0]["weather"][0]["main"] = true;
+    jfilter["daily"][0]["weather"][0]["description"] = true;
+    jfilter["daily"][0]["weather"][0]["icon"] = true;
+
+    String filter = "";
+    filter = jfilter.as<String>();
+
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, filter, [this, &model](int httpCode, const String &response) 
+        { processResponse(httpCode, response, model); } );
 
     if (!task) {
         Log.errorln("Failed to create weather task");
@@ -40,34 +58,6 @@ bool OpenWeatherMapFeed::getWeatherData(WeatherDataModel &model) {
     }
 
     return success;
-}
-void OpenWeatherMapFeed::preProcessResponse(int httpCode, String &response) {
-    if (httpCode > 0) {
-
-        JsonDocument filter;
-        filter["current"]["dt"] = true;
-        filter["current"]["temp"] = true;
-        filter["current"]["weather"][0]["description"] = true;
-        filter["current"]["weather"][0]["icon"] = true;
-
-        filter["daily"][0]["dt"] = true;
-        filter["daily"][0]["summary"] = true;
-        filter["daily"][0]["temp"]["min"] = true;
-        filter["daily"][0]["temp"]["max"] = true;
-        filter["daily"][0]["weather"][0]["main"] = true;
-        filter["daily"][0]["weather"][0]["description"] = true;
-        filter["daily"][0]["weather"][0]["icon"] = true;
-
-        JsonDocument doc;
-        DeserializationError error = deserializeJson(doc, response, DeserializationOption::Filter(filter));
-
-        if (!error) {
-            response = doc.as<String>();
-        } else {
-            // Handle JSON deserialization error
-            Log.errorln("Deserialization failed: %s", error.c_str());
-        }
-    }
 }
 
 void OpenWeatherMapFeed::processResponse(int httpCode, const String &response, WeatherDataModel &model) {

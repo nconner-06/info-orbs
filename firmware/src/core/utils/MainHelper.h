@@ -9,9 +9,10 @@
 #include "TFT_eSPI.h"
 #include "WidgetSet.h"
 #include "git_info.h"
+#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 
-#define VERSION "1.2beta"
+#define VERSION "2.0 beta"
 
 // Set defaults if not set in config.h
 #ifndef TFT_BRIGHTNESS
@@ -48,12 +49,26 @@
     #define WDT_TIMEOUT 60 // Timeout in seconds
 #endif
 
+#ifndef BUSY_PIN
+    #define BUSY_PIN 2
+#endif
+
+// LED_TYPE 0 = led, 1 = WS2812
+#ifndef LED_TYPE
+    #define LED_TYPE 1
+#endif
+
+#ifndef LED_COLOR
+    #define LED_COLOR BLUE
+#endif
+
 class MainHelper {
 public:
     static void init(WiFiManager *wm, ConfigManager *cm, ScreenManager *sm, WidgetSet *ws);
     static void isrButtonChangeLeft();
     static void isrButtonChangeMiddle();
     static void isrButtonChangeRight();
+    static void isrCheckPosition();
 
     static void setupButtons();
     static void setupConfig();
@@ -67,6 +82,7 @@ public:
     static void resetCycleTimer();
 
     static void setupWebPortalEndpoints();
+    static void handleEndpointSwitchApp();
     static void handleEndpointButton();
     static void handleEndpointButtons();
     static void handleEndpointListFiles();
@@ -84,6 +100,11 @@ public:
 
     static void printPrefix(Print *_logOutput, int logLevel);
     static void eraseNVSAndRestart();
+
+    static int getLedType();
+    static int getBusyPin();
+    static int getLedColor();
+    static bool getAutoDim();
 };
 
 #endif

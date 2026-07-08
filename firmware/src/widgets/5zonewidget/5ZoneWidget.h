@@ -2,6 +2,7 @@
 #define FIVE_ZONE_WIDGET_H
 
 #include "GlobalTime.h"
+#include "Translations.h"
 #include "Widget.h"
 #include "config_helper.h"
 
@@ -22,7 +23,7 @@
 
 struct TimeZone {
     std::string locName = "";
-    std::string tzInfo = "";
+    int tzInfo = -1;
     int timeZoneOffset = -1;
     unsigned long nextTimeZoneUpdate = 0;
     int m_workStart = DEFAULT_WORK_HOUR_START; // Work start hour for this zone
@@ -38,22 +39,19 @@ public:
     void setup() override;
     void update(bool force) override;
     void draw(bool force) override;
+    void onLeave(bool force) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 
 private:
-    int getClockStamp();
-    void getTZoneOffset(int8_t zoneIndex);
     void displayZone(int8_t displayIndex, bool force);
-    bool isWeekend(int weekday) { return weekday == 1 || weekday == 7; }
+    bool isWeekend(int weekday) { return weekday == 0 || weekday == 6; }
     void changeFormat();
 
     TimeZone m_timeZones[MAX_ZONES];
     TimeZone m_localTimeZone;
     GlobalTime *m_time;
     time_t m_unixEpoch = 0;
-    int m_clockStampU = -1;
-    int m_clockStampD = -1;
     uint16_t m_backgroundColor = BG_COLOR;
     uint16_t m_foregroundColor;
     uint16_t m_workColour = WORK_FG_COLOR;
@@ -63,9 +61,23 @@ private:
     uint16_t m_sameLocalTzColour = SAME_LOCAL_TZ;
     uint16_t m_afterLocalTzColour = AFTER_LOCAL_TZ;
 
-    std::string m_timezoneLocation = TIMEZONE_API_LOCATION;
-    int m_format = CLOCK_FORMAT;
-    bool m_showBizHours;
-};
+    bool m_showSecondTick = false;
+    int s_dimOrg = 0;
 
+    std::string m_timezoneLocation = TIMEZONE_API_LOCATION;
+    int m_timezone = 0;
+    int m_format = CLOCK_FORMAT;
+    bool m_showBizHours = false;
+
+#ifndef FIVEZONE_UPDATE_DELAY
+    #define FIVEZONE_UPDATE_DELAY TimeFrequency::TenMinutes
+#endif
+
+#ifndef FIVEZONE_DRAW_DELAY
+    #define FIVEZONE_DRAW_DELAY TimeFrequency::FiveHundredMilliseconds
+#endif
+
+    WidgetTimer &m_drawTimer;
+    WidgetTimer &m_updateTimer;
+};
 #endif // FIVE_ZONE_WIDGET_H

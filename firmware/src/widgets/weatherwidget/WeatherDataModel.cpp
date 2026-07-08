@@ -115,7 +115,7 @@ String WeatherDataModel::getDayIcon(int num) {
 }
 
 WeatherDataModel &WeatherDataModel::setDaysLows(float *lows) {
-    for (int i; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         setDayLow(i, lows[i]);
     }
     return *this;
@@ -148,7 +148,7 @@ String WeatherDataModel::getDayLow(int8_t num, int8_t digits) {
 }
 
 WeatherDataModel &WeatherDataModel::setDaysHighs(float highs[3]) {
-    for (int i; i < 3; i++) {
+    for (int i = 0; i < 3; i++) {
         setDayHigh(i, highs[i]);
     }
     return *this;

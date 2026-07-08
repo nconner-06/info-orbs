@@ -1,4 +1,5 @@
 #include "Utils.h"
+#include "MainHelper.h"
 #include "config_helper.h"
 #include <ArduinoLog.h>
 #include <TFT_eSPI.h>
@@ -406,15 +407,27 @@ ButtonState Utils::stringToButtonState(const String &buttonState) {
         return BTN_MEDIUM;
     } else if (buttonState.equalsIgnoreCase("long")) {
         return BTN_LONG;
+    } else if (buttonState.equalsIgnoreCase("longer")) {
+        return BTN_LONGER;
     } else {
         return BTN_NOTHING;
     }
 }
 
 void Utils::setBusy(bool busy) {
-    if (busy) {
-        digitalWrite(BUSY_PIN, HIGH);
+    if (MainHelper::getLedType() == 0) {
+        if (busy)
+            digitalWrite(MainHelper::getBusyPin(), HIGH);
+        else
+            digitalWrite(MainHelper::getBusyPin(), LOW);
     } else {
-        digitalWrite(BUSY_PIN, LOW);
+        //        Adafruit_NeoPixel leds(1, MainHelper::getBusyPin(), NEO_RGB + NEO_KHZ800);
+        Adafruit_NeoPixel leds(1, MainHelper::getBusyPin(), NEO_GRB + NEO_KHZ800);
+        leds.begin();
+        if (busy)
+            leds.setPixelColor(0, Utils::rgb565ToRgb888(MainHelper::getLedColor()));
+        else
+            leds.setPixelColor(0, leds.Color(0, 0, 0));
+        leds.show();
     }
 }

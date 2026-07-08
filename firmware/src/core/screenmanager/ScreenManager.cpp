@@ -7,7 +7,7 @@
 
 ScreenManager *ScreenManager::instance = nullptr;
 
-ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
+ScreenManager::ScreenManager(TFT_eSPI &tft, TFT_eSprite &spr) : m_tft(tft), m_spr(spr) {
 
     for (int i = 0; i < NUM_SCREENS; i++) {
         pinMode(m_screen_cs[i], OUTPUT);
@@ -20,17 +20,24 @@ ScreenManager::ScreenManager(TFT_eSPI &tft) : m_tft(tft) {
     m_tft.setTextDatum(MC_DATUM);
     reset();
 
+#ifdef USE_DMA
+    m_tft.initDMA(); // To use SPI DMA you must call initDMA() to setup the DMA engine
+#endif
+
     // Init TJpg_Decode
     TJpgDec.setSwapBytes(true); // JPEG rendering setup
     TJpgDec.setJpgScale(1);
-    TJpgDec.setCallback(tftOutput);
+    TJpgDec.setCallback(sprOutput);
+
+    m_spr.createSprite(TFT_WIDTH, TFT_HEIGHT);
+    setPngCb(pngle_on_draw);
 
     // I'm not sure which cache size is actually good.
     // It's a tradeoff between memory consumption and render speed.
     // Needs more testing to find the sweet spot.
     m_render.setCacheSize(8, 8, 4096);
     setFont(DEFAULT_FONT);
-    m_render.setDrawer(m_tft);
+    m_render.setDrawer(m_spr);
 
     Log.noticeln("ScreenManager initialized");
     Log.noticeln("TFT_MOSI: %s", String(TFT_MOSI));
@@ -97,11 +104,20 @@ OpenFontRender &ScreenManager::getRender() {
 // Selects a single screen
 void ScreenManager::selectScreen(int screen) {
     for (int i = 0; i < NUM_SCREENS; i++) {
-        int orbRotation = ConfigManager::getInstance()->getConfigInt("orbRotation", ORB_ROTATION);
-        bool rotateDisplays = orbRotation == 1 || orbRotation == 2;
-        int currentDisplay = rotateDisplays ? NUM_SCREENS - i - 1 : i;
-        digitalWrite(m_screen_cs[currentDisplay], i == screen ? LOW : HIGH);
+        digitalWrite(m_screen_cs[i], HIGH);
     }
+
+    if (screen < 0 || screen >= NUM_SCREENS) {
+        // Invalid index: leave all screens deselected instead of writing
+        // to an out-of-bounds CS pin / wrong panel
+        Log.infoln("selectScreen: invalid screen index %d", screen);
+        return;
+    }
+    // Now select the target screen
+    int orbRotation = ConfigManager::getInstance()->getConfigInt("orbRotation", ORB_ROTATION);
+    bool rotateDisplays = orbRotation == 1 || orbRotation == 2;
+    int currentDisplay = rotateDisplays ? NUM_SCREENS - screen - 1 : screen;
+    digitalWrite(m_screen_cs[currentDisplay], LOW);
 }
 
 // Fills all screens with a color
@@ -235,39 +251,87 @@ void ScreenManager::drawFittedString(const String &text, int x, int y, int limit
 }
 
 void ScreenManager::drawRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    m_tft.drawRect(x, y, w, h, dim(color));
+    m_spr.drawRect(x, y, w, h, dim(color));
 }
 
 void ScreenManager::fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
-    m_tft.fillRect(x, y, w, h, dim(color));
+    m_spr.fillRect(x, y, w, h, dim(color));
 }
 
 void ScreenManager::drawLine(int32_t xs, int32_t ys, int32_t xe, int32_t ye, uint32_t color) {
-    m_tft.drawLine(xs, ys, xe, ye, dim(color));
+    m_spr.drawLine(xs, ys, xe, ye, dim(color));
 }
 
 void ScreenManager::drawArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool smoothArc) {
-    m_tft.drawArc(x, y, r, ir, startAngle, endAngle, dim(fg_color), dim(bg_color), smoothArc);
+    m_spr.drawArc(x, y, r, ir, startAngle, endAngle, dim(fg_color), dim(bg_color), smoothArc);
 }
 
 void ScreenManager::drawSmoothArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool roundEnds) {
-    m_tft.drawSmoothArc(x, y, r, ir, startAngle, endAngle, dim(fg_color), dim(bg_color), roundEnds);
+    m_spr.drawSmoothArc(x, y, r, ir, startAngle, endAngle, dim(fg_color), dim(bg_color), roundEnds);
 }
 
 void ScreenManager::drawTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color) {
-    m_tft.drawTriangle(x1, y1, x2, y2, x3, y3, dim(color));
+    m_spr.drawTriangle(x1, y1, x2, y2, x3, y3, dim(color));
 }
 
 void ScreenManager::fillTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color) {
-    m_tft.fillTriangle(x1, y1, x2, y2, x3, y3, dim(color));
+    m_spr.fillTriangle(x1, y1, x2, y2, x3, y3, dim(color));
 }
 
 void ScreenManager::drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color) {
-    m_tft.drawCircle(x, y, r, dim(color));
+    m_spr.drawCircle(x, y, r, dim(color));
 }
 
 void ScreenManager::fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color) {
-    m_tft.fillCircle(x, y, r, dim(color));
+    m_spr.fillCircle(x, y, r, dim(color));
+}
+
+void ScreenManager::drawRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color) {
+    m_spr.drawRoundRect(x, y, w, h, radius, dim(color));
+}
+
+void ScreenManager::fillRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color) {
+    m_spr.fillRoundRect(x, y, w, h, radius, dim(color));
+}
+
+void ScreenManager::drawEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color) {
+    m_spr.drawEllipse(x, y, rx, ry, dim(color));
+}
+
+void ScreenManager::fillEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color) {
+    m_spr.fillEllipse(x, y, rx, ry, dim(color));
+}
+
+void ScreenManager::drawSmoothCircle(int32_t x, int32_t y, int32_t r, uint32_t fg_color, uint32_t bg_color) {
+    m_spr.drawSmoothCircle(x, y, r, dim(fg_color), dim(bg_color));
+}
+
+void ScreenManager::fillSmoothCircle(int32_t x, int32_t y, int32_t r, uint32_t fg_color, uint32_t bg_color) {
+    m_spr.fillSmoothCircle(x, y, r, dim(fg_color), dim(bg_color));
+}
+
+void ScreenManager::drawSmoothRoundRect(int32_t x, int32_t y, int32_t r, int32_t ir, int32_t w, int32_t h, uint32_t fg_color, uint32_t bg_color, uint8_t quadrants) {
+    m_spr.drawSmoothRoundRect(x, y, r, ir, w, h, dim(fg_color), dim(bg_color), quadrants);
+}
+
+void ScreenManager::fillSmoothRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t fg_color, uint32_t bg_color) {
+    m_spr.fillSmoothRoundRect(x, y, w, h, radius, dim(fg_color), dim(bg_color));
+}
+
+void ScreenManager::drawWideLine(float ax, float ay, float bx, float by, float wd, uint32_t fg_color, uint32_t bg_color) {
+    m_spr.drawWideLine(ax, ay, bx, by, wd, dim(fg_color), dim(bg_color));
+}
+
+void ScreenManager::drawWedgeLine(float ax, float ay, float bx, float by, float aw, float bw, uint32_t fg_color, uint32_t bg_color) {
+    m_spr.drawWedgeLine(ax, ay, bx, by, aw, bw, dim(fg_color), dim(bg_color));
+}
+
+void ScreenManager::drawPixel(int32_t x, int32_t y, int32_t color) {
+    m_spr.drawPixel(x, y, dim(color));
+}
+
+void ScreenManager::pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t *data) {
+    m_spr.pushImage(x, y, w, h, data);
 }
 
 unsigned int ScreenManager::getScaledFontSize(unsigned int fontSize) {
@@ -282,6 +346,38 @@ unsigned int ScreenManager::getScaledFontSize(unsigned int fontSize) {
 // get the dimmed color (using current brightness)
 uint16_t ScreenManager::dim(uint16_t color) {
     return Utils::rgb565dim(color, m_brightness);
+}
+
+void ScreenManager::drawLegacyRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+    m_tft.drawRect(x, y, w, h, dim(color));
+}
+
+void ScreenManager::fillLegacyRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color) {
+    m_tft.fillRect(x, y, w, h, dim(color));
+}
+
+void ScreenManager::drawLegacyLine(int32_t xs, int32_t ys, int32_t xe, int32_t ye, uint32_t color) {
+    m_tft.drawLine(xs, ys, xe, ye, dim(color));
+}
+
+void ScreenManager::drawLegacyArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool smoothArc) {
+    m_tft.drawArc(x, y, r, ir, startAngle, endAngle, dim(fg_color), dim(bg_color), smoothArc);
+}
+
+void ScreenManager::drawLegacyTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color) {
+    m_tft.drawTriangle(x1, y1, x2, y2, x3, y3, dim(color));
+}
+
+void ScreenManager::fillLegacyTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color) {
+    m_tft.fillTriangle(x1, y1, x2, y2, x3, y3, dim(color));
+}
+
+void ScreenManager::drawLegacyCircle(int32_t x, int32_t y, int32_t r, uint32_t color) {
+    m_tft.drawCircle(x, y, r, dim(color));
+}
+
+void ScreenManager::fillLegacyCircle(int32_t x, int32_t y, int32_t r, uint32_t color) {
+    m_tft.fillCircle(x, y, r, dim(color));
 }
 
 int16_t ScreenManager::getLegacyFontHeight() {
@@ -320,14 +416,13 @@ int16_t ScreenManager::drawLegacyChar(uint16_t uniCode, int32_t x, int32_t y, ui
     return m_tft.drawChar(uniCode, x, y, font);
 }
 
+// Additional functions used by MatrixWidget
 int16_t ScreenManager::width() {
     return m_tft.width();
 }
-
 int16_t ScreenManager::height() {
     return m_tft.height();
 }
-
 void ScreenManager::setTextColor(uint16_t c) {
     m_tft.setTextColor(c);
 }
@@ -337,19 +432,15 @@ void ScreenManager::setTextColor(uint16_t c, uint16_t b) {
 void ScreenManager::setTextColor(uint16_t c, uint16_t b, bool bgfill) {
     m_tft.setTextColor(c, b, bgfill);
 }
-
 uint16_t ScreenManager::color565(uint8_t r, uint8_t g, uint8_t b) {
     return m_tft.color565(r, g, b);
 }
-
 void ScreenManager::setCursor(int16_t x, int16_t y) {
     m_tft.setCursor(x, y);
 }
-
 void ScreenManager::setTextSize(uint8_t s) {
     m_tft.setTextSize(s);
 }
-
 void ScreenManager::print(String s) {
     m_tft.print(s);
 }
@@ -380,6 +471,30 @@ bool ScreenManager::tftOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint
     return true;
 }
 
+// Static function to be used in TJpgDec callback
+bool ScreenManager::sprOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) {
+    if (instance == nullptr) {
+        Log.warningln("TFT_Output not possible, ScreenManager instance not initialized");
+        return false;
+    }
+    uint8_t brightness = instance->getBrightness();
+    uint32_t imageColor = instance->m_imageColor;
+    TFT_eSprite &spr = instance->getSprite();
+    TFT_eSPI &tft = instance->getDisplay();
+    if (y >= spr.height() || x >= spr.width())
+        return 0;
+    if (imageColor != 0) {
+        // We have an image color set, let's use it
+        Utils::colorizeImageData(bitmap, w * h, imageColor, 1.25, true);
+    }
+    if (brightness != 255) {
+        // Dim bitmap
+        Utils::rgb565dimBitmap(bitmap, w * h, brightness, true);
+    }
+    spr.pushImage(x, y, w, h, bitmap);
+    return true;
+}
+
 JRESULT ScreenManager::drawJpg(int32_t x, int32_t y, const uint8_t jpeg_data[], uint32_t data_size, uint8_t scale, uint32_t imageColor) {
     // Set scale
     TJpgDec.setJpgScale(scale);
@@ -400,4 +515,65 @@ JRESULT ScreenManager::drawFsJpg(int32_t x, int32_t y, const char *filename, uin
     // Reset image color
     m_imageColor = 0;
     return result;
+}
+
+void ScreenManager::createSprite(int32_t w, int32_t h) {
+    m_spr.createSprite(w, h);
+}
+void ScreenManager::pushSprite(int displayIndex, int32_t x, int32_t y) {
+    selectScreen(displayIndex);
+    m_spr.pushSprite(x, y);
+}
+void ScreenManager::fillSprite(uint32_t color) {
+    m_spr.fillSprite(dim(color));
+}
+
+TFT_eSprite &ScreenManager::getSprite() {
+    return m_spr;
+}
+
+void ScreenManager::loadPngFile(fs::FS &fs, const char *path) {
+    fs::File file = fs.open(path);
+    if (!file) {
+        Serial.println("Failed to open file for reading");
+        return;
+    }
+    pngle_t *pngle = pngle_new();
+
+    pngle_set_draw_callback(pngle, pngle_on_draw);
+
+    // Feed data to pngle
+    uint8_t buf[1024];
+
+    int remain = 0;
+    int len;
+
+    while ((len = file.read(buf + remain, sizeof(buf) - remain)) > 0) {
+        int fed = pngle_feed(pngle, buf, remain + len);
+        if (fed < 0) {
+            Serial.printf("ERROR: %s\n", pngle_error(pngle));
+            break;
+        }
+
+        remain = remain + len - fed;
+        if (remain > 0)
+            memmove(buf, buf + fed, remain);
+    }
+
+    pngle_destroy(pngle);
+    file.close();
+}
+
+void ScreenManager::pngle_on_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]) {
+    int16_t png_dx = 30, png_dy = 30;
+    uint16_t color = (rgba[0] << 8 & 0xf800) | (rgba[1] << 3 & 0x07e0) | (rgba[2] >> 3 & 0x001f);
+    TFT_eSprite &l_spr = instance->getSprite();
+
+    if (rgba[3] > 127) { // Transparency threshold (no blending yet...)
+        l_spr.drawPixel(x + png_dx, y + png_dy, color);
+    }
+}
+
+void ScreenManager::setPngCb(pngle_draw_callback_t pngCallBack) {
+    pngCallback = pngCallBack;
 }

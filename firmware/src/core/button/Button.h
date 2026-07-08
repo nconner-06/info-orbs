@@ -7,6 +7,7 @@ enum ButtonState {
     BTN_SHORT,
     BTN_MEDIUM,
     BTN_LONG,
+    BTN_LONGER,
     BTN_VERY_LONG
 };
 
@@ -15,7 +16,7 @@ enum Buttons {
     BUTTON_LEFT = 1,
     BUTTON_MIDDLE = 2,
     BUTTON_OK = 2, // backwards compatibility
-    BUTTON_RIGHT = 3,
+    BUTTON_RIGHT = 3
 };
 
 class Button {
@@ -25,6 +26,7 @@ public:
     bool pressedShort();
     bool pressedMedium();
     bool pressedLong();
+    bool pressedLonger();
     bool pressedVeryLong();
     ButtonState getState();
     void isrButtonChange();
@@ -51,6 +53,11 @@ public:
     const static unsigned long LONG_PRESS_TIME = BUTTON_LONG_PRESS_TIME;
 #else
     const static unsigned long LONG_PRESS_TIME = 2000;
+#endif
+#ifdef BUTTON_LONGER_PRESS_TIME
+    const static unsigned long LONGER_PRESS_TIME = BUTTON_LONGER_PRESS_TIME;
+#else
+    const static unsigned long LONGER_PRESS_TIME = 5000;
 #endif
 #ifdef BUTTON_VERY_LONG_PRESS_TIME
     const static unsigned long VERY_LONG_PRESS_TIME = BUTTON_VERY_LONG_PRESS_TIME;

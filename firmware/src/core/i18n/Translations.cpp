@@ -44,6 +44,18 @@ constexpr Translation t_loadingData = {
     "Chargement:" // FR
 };
 
+constexpr Translation t_error = {
+    "Error:", // EN
+    "Fehler:", // DE
+    "Erreur:" // FR
+};
+
+constexpr Translation t_invalid = {
+    "Invalid:", // EN
+    "Ungültig:", // DE
+    "Invalide:" // FR
+};
+
 constexpr Translation t_enableWidget = {
     "Enable Widget", // EN
     "Widget aktivieren", // DE
@@ -106,6 +118,10 @@ constexpr Translation t_nightmode = {
     "Enable Nighttime mode", // EN
     "Nachtmodus aktivieren", // DE
     "Activer le mode nuit" // FR
+};
+
+constexpr Translation t_autodimmer = {
+    "Enable Automatic Dimming mode", // EN
 };
 
 constexpr Translation t_tftBrightness = {
@@ -284,4 +300,12 @@ constexpr Translation t_dayMonthFormat = {
     "%d %B", // EN
     "%d. %B", // DE
     "%d %B", // FR
+};
+
+constexpr Translation t_ledColor = {
+    "Select Led Color" // EN
+};
+
+constexpr Translation t_timezone = {
+    "Select your TimeZone", // EN
 };

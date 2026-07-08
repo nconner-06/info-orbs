@@ -2,12 +2,12 @@
 #define STOCK_WIDGET_H
 
 #include <ArduinoJson.h>
-#include <TFT_eSPI.h>
 #include <TaskManager.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "GlobalTime.h"
 #include "StockDataModel.h"
 #include "Widget.h"
 #include "config_helper.h"
@@ -20,6 +20,7 @@ public:
     void setup() override;
     void update(bool force = false) override;
     void draw(bool force = false) override;
+    void onLeave(bool force = false) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 
@@ -27,8 +28,11 @@ public:
 
 private:
     void processResponse(StockDataModel &stock, int httpCode, const String &response);
-    void displayStock(int8_t displayIndex, StockDataModel &stock, uint32_t backgroundColor, uint32_t textColor);
+    void displayClock(int displayIndex);
+    void displayStock(int8_t displayIndex, StockDataModel &stock);
     void nextPage();
+
+    GlobalTime *m_time;
 
     int8_t m_page = 0;
     int8_t m_pageCount = 0;
@@ -50,6 +54,9 @@ private:
 
     int m_switchinterval = 10;
     unsigned long m_prevMillisSwitch = 0;
+    boolean m_showClockS = true; // Show clock on first screen
+    bool m_showSecondTickS = false;
+    bool m_digitalClock = true;
 
     WidgetTimer &m_drawTimer;
     WidgetTimer &m_updateTimer;
@@ -59,7 +66,7 @@ private:
 #endif
 
 #ifndef STOCK_DRAW_DELAY
-    #define STOCK_DRAW_DELAY TimeFrequency::ThreeSeconds
+    #define STOCK_DRAW_DELAY TimeFrequency::FiveHundredMilliseconds
 #endif
 };
 

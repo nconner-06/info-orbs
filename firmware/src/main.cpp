@@ -1,17 +1,14 @@
-#include "5zonewidget/5ZoneWidget.h"
+#include "DimmingManager.h"
 #include "GlobalResources.h"
+#include "GlobalTime.h"
 #include "MainHelper.h"
-#include "clockwidget/ClockWidget.h"
-#include "matrixwidget/MatrixWidget.h"
-#include "mqttwidget/MQTTWidget.h"
-#include "parqetwidget/ParqetWidget.h"
-#include "stockwidget/StockWidget.h"
-#include "weatherwidget/WeatherWidget.h"
-#include "webdatawidget/WebDataWidget.h"
+#include "TaskFactory.h"
+#include "WidgetRegistry.h"
 #include "wifiwidget/WifiWidget.h"
 #include <ArduinoLog.h>
 
 TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite spr = TFT_eSprite(&tft);
 
 GlobalTime *globalTime{nullptr};
 WifiWidget *wifiWidget{nullptr};
@@ -19,39 +16,8 @@ ScreenManager *sm{nullptr};
 ConfigManager *config{nullptr};
 OrbsWiFiManager *wifiManager{nullptr};
 WidgetSet *widgetSet{nullptr};
-
-void addWidgets() {
-    // Always add clock
-    widgetSet->add(new ClockWidget(*sm, *config));
-
-#if INCLUDE_WEATHER != WIDGET_DISABLED
-    widgetSet->add(new WeatherWidget(*sm, *config));
-#endif
-
-#if INCLUDE_STOCK != WIDGET_DISABLED
-    widgetSet->add(new StockWidget(*sm, *config));
-#endif
-#if INCLUDE_PARQET != WIDGET_DISABLED
-    widgetSet->add(new ParqetWidget(*sm, *config));
-#endif
-#if INCLUDE_WEBDATA != WIDGET_DISABLED
-    #ifdef WEB_DATA_WIDGET_URL
-    widgetSet->add(new WebDataWidget(*sm, *config, WEB_DATA_WIDGET_URL));
-    #endif
-    #ifdef WEB_DATA_STOCK_WIDGET_URL
-    widgetSet->add(new WebDataWidget(*sm, *config, WEB_DATA_STOCK_WIDGET_URL));
-    #endif
-#endif
-#if INCLUDE_MQTT != WIDGET_DISABLED
-    widgetSet->add(new MQTTWidget(*sm, *config));
-#endif
-#if INCLUDE_5ZONE != WIDGET_DISABLED
-    widgetSet->add(new FiveZoneWidget(*sm, *config));
-#endif
-#if INCLUDE_MATRIXSCREEN != WIDGET_DISABLED
-    widgetSet->add(new MatrixWidget(*sm, *config));
-#endif
-}
+DimmingManager *dimmerInstance{nullptr};
+TaskManager *taskInstance{nullptr};
 
 void setup() {
     // Initialize global resources
@@ -78,7 +44,7 @@ void setup() {
 
     wifiManager = new OrbsWiFiManager();
     config = new ConfigManager(*wifiManager);
-    sm = new ScreenManager(tft);
+    sm = new ScreenManager(tft, spr);
     widgetSet = new WidgetSet(sm);
 
     // Pass references to MainHelper
@@ -88,41 +54,59 @@ void setup() {
     MainHelper::setupButtons();
     MainHelper::showWelcome();
 
-    pinMode(BUSY_PIN, OUTPUT);
+    if (MainHelper::getLedType() == 0)
+        pinMode(MainHelper::getBusyPin(), OUTPUT);
+
     Log.noticeln("Connecting to WiFi");
     wifiWidget = new WifiWidget(*sm, *config, *wifiManager);
     wifiWidget->setup();
 
     globalTime = GlobalTime::getInstance();
-    addWidgets();
+
+    registerWidgets(widgetSet, sm, config);
+
     config->setupWebPortal();
+
     MainHelper::resetCycleTimer();
+    if (MainHelper::getAutoDim()) {
+        dimmerInstance = DimmingManager::getInstance();
+    }
+    taskInstance = TaskManager::getInstance();
 }
 
 void loop() {
     MainHelper::watchdogReset();
+    unsigned long wifiCurrentMillis = millis();
     if (wifiWidget->isConnected() == false) {
         wifiWidget->update();
         wifiWidget->draw();
-        widgetSet->setClearScreensOnDrawCurrent(); // Clear screen after wifiWidget
         delay(100);
     } else {
         if (!widgetSet->initialUpdateDone()) {
+            globalTime->updateTime(true);
             widgetSet->initializeAllWidgetsData();
             MainHelper::setupWebPortalEndpoints();
         }
+
+        wifiManager->process();
+
         globalTime->updateTime();
 
         MainHelper::checkButtons();
 
         widgetSet->updateCurrent();
-        MainHelper::updateBrightnessByTime(globalTime->getHour24());
+
+        if (MainHelper::getAutoDim())
+            dimmerInstance->updateBrightness(sm, widgetSet);
+        else
+            MainHelper::updateBrightnessByTime(globalTime->getHour24());
+
         widgetSet->drawCurrent();
 
         MainHelper::checkCycleWidgets();
-        wifiManager->process();
-        TaskManager::getInstance()->processAwaitingTasks();
-        TaskManager::getInstance()->processTaskResponses();
+
+        taskInstance->processAwaitingTasks();
+        taskInstance->processTaskResponses();
     }
 #ifdef MEMORY_DEBUG_INTERVAL
     ShowMemoryUsage::printSerial();

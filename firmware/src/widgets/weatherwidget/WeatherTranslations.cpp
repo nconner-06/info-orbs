@@ -32,3 +32,7 @@ constexpr Translation t_openWeatherLong = {
 constexpr Translation t_openWeatherName = {
     "OpenWeather Location Name", // EN
 };
+
+constexpr Translation t_ShowSecondTick = {
+    "Show Second Ticks", // EN
+};

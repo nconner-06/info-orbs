@@ -2,6 +2,7 @@
 #define WIDGET_SET_H
 
 #include "ScreenManager.h"
+#include "ShowMemoryUsage.h"
 #include "Utils.h"
 #include "Widget.h"
 
@@ -16,6 +17,7 @@ public:
     void drawCurrent(bool force = false);
     void updateCurrent();
     Widget *getCurrent();
+    Widget *getWidget(int widgetId);
     void next();
     void prev();
     void buttonPressed(uint8_t buttonId, ButtonState state);
@@ -26,14 +28,21 @@ public:
     void setClearScreensOnDrawCurrent();
     bool isItTimeToDraw();
     bool isItTimeToUpdate();
+    int getWidgetCount();
+    void addForced(Widget *widget);
+    int getEnabledWidgetCount();
+    String *getAppName();
+    void switchToWidget(int newWidget);
 
 private:
     void showCenteredLine(int screen, const String &text);
     ScreenManager *m_screenManager;
     bool m_clearScreensOnDrawCurrent = true;
     Widget *m_widgets[MAX_WIDGETS];
+    int m_enabledWidgets = 0;
     uint8_t m_widgetCount = 0;
     uint8_t m_currentWidget = 0;
+    int m_previousWidget = -1;
 
     bool m_initialized = false;
 

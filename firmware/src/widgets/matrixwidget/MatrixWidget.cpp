@@ -1,5 +1,6 @@
 #include "MatrixWidget.h"
 #include "MatrixTranslations.h"
+#include <ArduinoLog.h>
 
 MatrixWidget::MatrixWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
     m_enabled = (INCLUDE_MATRIXSCREEN == WIDGET_ON);
@@ -15,9 +16,9 @@ MatrixWidget::MatrixWidget(ScreenManager &manager, ConfigManager &config) : Widg
 }
 
 void MatrixWidget::setup() {
-    int R;
-    int G;
-    int B;
+    int R = 0;
+    int G = 0;
+    int B = 0;
 
     ConfigManager *cm = ConfigManager::getInstance();
     bool l_bigFont = cm->getConfigBool("mtxBigFont", false);
@@ -45,6 +46,10 @@ void MatrixWidget::update(bool force) {
 void MatrixWidget::draw(bool force) {
     m_manager.selectAllScreens();
     matrix_effect.loop();
+}
+
+void MatrixWidget::onLeave(bool force) {
+
 }
 
 void MatrixWidget::buttonPressed(uint8_t buttonId, ButtonState state) {

@@ -12,5 +12,6 @@ extern Translation t_tempestStationName;
 extern Translation t_openWeatherLat;
 extern Translation t_openWeatherLong;
 extern Translation t_openWeatherName;
+extern Translation t_ShowSecondTick;
 
 #endif // WEATHERTRANSLATIONS_H

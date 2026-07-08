@@ -11,6 +11,7 @@ bool LittleFSHelper::begin() {
         }
     }
     Log.infoln("LittleFS mounted successfully.");
+    Log.infoln("LittleFS Size : %i used, total size : %i", LittleFS.usedBytes(), LittleFS.totalBytes());
     return true;
 }
 
@@ -22,7 +23,6 @@ void LittleFSHelper::writeFile(const char *path, const char *message) {
     }
     file.print(message);
     file.close();
-    Log.infoln("File written successfully.");
 }
 
 void LittleFSHelper::readFile(const char *path) {
@@ -71,5 +71,20 @@ void LittleFSHelper::listFilesRecursively(const char *dirname) {
             Log.infoln("File: %s/%s, Size: %d", dirname, file.name(), file.size());
         }
         file = root.openNextFile();
+    }
+}
+
+void LittleFSHelper::createDir(fs::FS &fs, const char *path) {
+    if (!fs.mkdir(path))
+        Log.warningln("Failed to create open directory: %s\n", path);
+    else
+        Log.infoln("Directory created: %s", path);
+}
+
+void LittleFSHelper::removeDir(fs::FS &fs, const char *path) {
+    if (fs.rmdir(path)) {
+        Log.infoln("Directory removed: %s", path);
+    } else {
+        Log.warningln("Failed to remove directory: %s\n", path);
     }
 }

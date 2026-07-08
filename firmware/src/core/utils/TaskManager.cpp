@@ -34,17 +34,17 @@ bool TaskManager::addTask(std::unique_ptr<Task> task) {
         return false;
     }
 
-    auto *params = new TaskParams{task->url, task->callback, task->preProcessResponse, task->taskExec};
+    auto *params = new TaskParams{task->url, task->filter, task->callback, task->preProcessResponse, task->taskExec};
     taskParamsCount++; // Increment the count
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("TaskParams created: %d", taskParamsCount);
+    Log.infoln("TaskParams created: %d", taskParamsCount);
 #endif
 
     if (xQueueSend(requestQueue, &params, 0) != pdPASS) {
         delete params;
         taskParamsCount--;
 #ifdef TASKMANAGER_DEBUG
-        Log.noticeln("TaskParams deleted (queue full): %d", taskParamsCount);
+        Log.infoln("TaskParams deleted (queue full): %d", taskParamsCount);
 #endif
         return false;
     }
@@ -69,14 +69,14 @@ void TaskManager::processAwaitingTasks() {
         maxConcurrentRequests = activeRequests;
     }
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("✅ Obtained semaphore");
-    Log.noticeln("Active requests: %d (Max seen: %d)", activeRequests, maxConcurrentRequests);
+    Log.infoln("✅ Obtained semaphore");
+    Log.infoln("Active requests: %d (Max seen: %d)", activeRequests, maxConcurrentRequests);
 #endif
 
     // Get next request
     TaskParams *taskParams = nullptr;
     if (xQueueReceive(requestQueue, &taskParams, 0) != pdPASS) {
-        Log.noticeln("⚠️ Queue empty after size check!");
+        Log.infoln("⚠️ Queue empty after size check!");
         activeRequests--;
         Utils::setBusy(false);
         xSemaphoreGive(taskSemaphore);
@@ -84,9 +84,9 @@ void TaskManager::processAwaitingTasks() {
     }
 
 #ifdef TASKMANAGER_DEBUG
-    Log.noticeln("Processing request: %s (Remaining in queue: %d)",
-                 taskParams->url.c_str(),
-                 uxQueueMessagesWaiting(requestQueue));
+    Log.infoln("Processing request: %s (Remaining in queue: %d)",
+               taskParams->url.c_str(),
+               uxQueueMessagesWaiting(requestQueue));
 #endif
 
     TaskHandle_t taskHandle;
@@ -96,12 +96,12 @@ void TaskManager::processAwaitingTasks() {
             taskParams->taskExec();
             delete taskParams; // Ensure cleanup after execution
             taskParamsCount--; // Decrement the count
-            // Log.traceln("TaskParams deleted: %d", taskParamsCount);
+            Log.traceln("TaskParams deleted: %d", taskParamsCount);
 
             Utils::setBusy(false);
-            Log.noticeln("✅ Release semaphore");
+            Log.infoln("✅ Release semaphore");
             xSemaphoreGive(taskSemaphore);
-            vTaskDelete(nullptr);
+            vTaskDelete(NULL);
         },
         "TASK_EXEC",
         STACK_SIZE,

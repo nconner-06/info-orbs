@@ -80,8 +80,8 @@ void WebDataElementCircleModel::parseData(const JsonObject &doc, int32_t default
 
 void WebDataElementCircleModel::draw(ScreenManager &manager) {
     if (getFilled()) {
-        manager.fillCircle(getX(), getY(), getRadius(), getColor());
+        manager.fillLegacyCircle(getX(), getY(), getRadius(), getColor());
     } else {
-        manager.drawCircle(getX(), getY(), getRadius(), getColor());
+        manager.drawLegacyCircle(getX(), getY(), getRadius(), getColor());
     }
 }

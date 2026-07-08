@@ -65,8 +65,8 @@ const char WEBPORTAL_BUTTONS_PAGE_START2[] = R"(
         Here you can simulate button presses on the Orbs.
     </div>
     <div class='info'>
-        The device supports 3 different events per button:<br>
-        short (&lt;500ms), medium (500-2500ms) and long (&gt;2500ms)
+        The device supports 4 different events per button:<br>
+        short (&lt;500ms), medium (500-2000ms), long (2000-5000ms) and longer (&gt;5000ms)
     </div>
     <table>
 )";

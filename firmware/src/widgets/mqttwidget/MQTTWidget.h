@@ -1,6 +1,7 @@
 #ifndef MQTT_WIDGET_H
 #define MQTT_WIDGET_H
 
+#include "DrawScript.h"
 #include "Utils.h"
 #include "Widget.h"
 #include <ArduinoJson.h>
@@ -23,6 +24,7 @@ struct OrbConfig {
     String orbvalunit; // value unit
     int orbsize; // font size
     String jsonField; // JSON field to extract
+    int drawscript; // subscribed value is actually the instructions to draw the orb
     std::map<String, String> lastValuesMap; // Store last values for fields
 };
 
@@ -54,6 +56,8 @@ public:
      */
     void draw(bool force = false) override;
 
+    void onLeave(bool force = false) override;
+
     /**
      * @brief Handles mode changes (if applicable).
      */
@@ -80,7 +84,7 @@ private:
     std::map<String, String> orbDataMap;
 
     // Topic for button press
-    String buttonTopic;
+    String buttonTopic = "";
 
     // Static callback proxy
     static void staticCallback(char *topic, byte *payload, unsigned int length);
@@ -107,5 +111,4 @@ private:
     #define MQTT_DRAW_DELAY TimeFrequency::TenSeconds
 #endif
 };
-
 #endif // MQTT_WIDGET_H

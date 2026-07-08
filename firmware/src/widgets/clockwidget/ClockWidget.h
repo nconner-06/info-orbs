@@ -15,6 +15,7 @@
 #endif
 
 #ifndef CLOCK_FONT
+    //    #define CLOCK_FONT DSEG14
     #define CLOCK_FONT DSEG7
 #endif
 
@@ -33,11 +34,10 @@
 
 // Not all digits in DSEG7/14 are aligned identically, therefore we need to offset them
 #ifndef CLOCK_DIGITS_OFFSET
-    #define CLOCK_DIGITS_OFFSET \
-        {                       \
-            {0, 0}, {1, -5}, {0, 0}, {1, 0}, {0, -5}, {0, 0}, {0, 0}, {0, -5}, {0, 0}, {0, 0}}
-// Use zero offset for other fonts (or adjust)
-// #define CLOCK_DIGITS_OFFSET { {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0} }
+    //                                0       1       2       3       4       5       6       7       8       9
+    // #define CLOCK_DIGITS_OFFSET { {0, 0}, {1, -5}, {0, 0}, {1, 0}, {0, -5}, {0, 0}, {0, 0}, {0, -5}, {0, 0}, {0, 0}}
+    // Use zero offset for other fonts (or adjust)
+    #define CLOCK_DIGITS_OFFSET {{0, 0}, {50, 0}, {0, 0}, {5, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}}
 #endif
 
 #ifndef CLOCK_COLOR
@@ -56,6 +56,10 @@
     #define DEFAULT_CLOCK ClockType::NORMAL
 #endif
 
+#ifndef USE_CLOCK_MORPH
+    #define USE_CLOCK_MORPH false
+#endif
+
 struct DigitOffset {
     int x;
     int y;
@@ -63,20 +67,21 @@ struct DigitOffset {
 
 enum class ClockType {
     NORMAL = 0,
-    NIXIE = 1,
-    CUSTOM0 = 2,
-    CUSTOM1 = 3,
-    CUSTOM2 = 4,
-    CUSTOM3 = 5,
-    CUSTOM4 = 6,
-    CUSTOM5 = 7,
-    CUSTOM6 = 8,
-    CUSTOM7 = 9,
-    CUSTOM8 = 10,
-    CUSTOM9 = 11
+    MORPH = 1,
+    NIXIE = 2,
+    CUSTOM0 = 3,
+    CUSTOM1 = 4,
+    CUSTOM2 = 5,
+    CUSTOM3 = 6,
+    CUSTOM4 = 7,
+    CUSTOM5 = 8,
+    CUSTOM6 = 9,
+    CUSTOM7 = 10,
+    CUSTOM8 = 11,
+    CUSTOM9 = 12
 };
 
-#define CLOCK_TYPE_NUM 12
+#define CLOCK_TYPE_NUM 13
 
 class ClockWidget : public Widget {
 public:
@@ -85,6 +90,7 @@ public:
     void setup() override;
     void update(bool force = false) override;
     void draw(bool force = false) override;
+    void onLeave(bool force = false) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 
@@ -103,11 +109,23 @@ private:
     void changeClockType();
     bool isValidClockType(int clockType);
     bool isCustomClock(int clockType);
+    void displayMorphDigit(int orb, String m_digitlast, const String m_digit, uint32_t color);
+    void drawDisappearRL(int seg, int seq);
+    void drawDisappearLR(int seg, int seq);
+    void drawAppearLR(int seg, int seq);
+    void drawAppearRL(int seg, int seq);
+    void drawAppearBT(int seg, int seq);
+    void drawAppearTB(int seg, int seq);
+    void drawDisappearTB(int seg, int seq);
+    void drawDisappearBT(int seg, int seq);
+    void drawSegment(int seg, uint32_t color);
 
     int m_type = (int) DEFAULT_CLOCK;
+    GlobalTime *m_time;
 
     int m_format = CLOCK_FORMAT;
     bool m_showSecondTicks = SHOW_SECOND_TICKS;
+    bool m_showSecond = false;
     int m_fgColor = CLOCK_COLOR;
     int m_shadowColor = CLOCK_SHADOW_COLOR;
     bool m_shadowing = CLOCK_SHADOWING;
@@ -118,42 +136,87 @@ private:
     int m_customOverrideColor[10]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     bool m_customEnabled[10]{false, false, false, false, false, false, false, false, false, false};
 
-    time_t m_unixEpoch;
-    int m_timeZoneOffset;
+    time_t m_unixEpoch = 0;
+    String m_timezonePosix = "";
 
 #ifndef CLOCK_UPDATE_DELAY
-    #define CLOCK_UPDATE_DELAY TimeFrequency::OneSecond
+    #define CLOCK_UPDATE_DELAY TimeFrequency::FiveHundredMilliseconds
 #endif
 
 #ifndef CLOCK_DRAW_DELAY
-    #define CLOCK_DRAW_DELAY TimeFrequency::OneSecond
+    #define CLOCK_DRAW_DELAY TimeFrequency::FiveHundredMilliseconds
 #endif
 
     WidgetTimer &m_drawTimer;
     WidgetTimer &m_updateTimer;
 
-    int m_minuteSingle;
-    int m_hourSingle;
-    int m_secondSingle;
+    int m_minuteSingle = 0;
+    int m_hourSingle = 0;
+    int m_secondSingle = 0;
 
     int m_lastMinuteSingle{-1};
     int m_lastHourSingle{-1};
     int m_lastSecondSingle{-1};
 
     // Digits
-    String m_display1Digit;
+    String m_display1Digit = "";
     String m_lastDisplay1Digit{""};
-    String m_display2Digit;
+    String m_display2Digit = "";
     String m_lastDisplay2Digit{""};
     // Display 3 is :
-    String m_display4Digit;
+    String m_display4Digit = "";
     String m_lastDisplay4Digit{""};
-    String m_display5Digit;
+    String m_display5Digit = "";
     String m_lastDisplay5Digit{""};
 
-    String m_amPm;
-    String m_lastAmPm{""};
+    String m_amPm = "";
 
     DigitOffset m_digitOffsets[10] = CLOCK_DIGITS_OFFSET;
+
+    // Variables for Morph Clock
+    int m_morphAnimDelay = 35; // Set the animation speed in ms per step and 5 steps per segment
+    bool m_enableMorph = USE_CLOCK_MORPH;
+    // Segment location in format : X , Y, L, W
+    const int segLoc[7][4] = {
+        {80, 28, 80, 16}, // A
+        {162, 38, 16, 80}, // B
+        {162, 124, 16, 80}, // C
+        {80, 198, 80, 16}, // D
+        {62, 124, 16, 80}, // E
+        {62, 38, 16, 80}, // F
+        {80, 112, 80, 16}}; // G
+
+    // Which segments for each digit
+    const int digits[10][7] = {
+        {1, 1, 1, 1, 1, 1, 0}, // 0
+        {0, 1, 1, 0, 0, 0, 0}, // 1
+        {1, 1, 0, 1, 1, 0, 1}, // 2
+        {1, 1, 1, 1, 0, 0, 1}, // 3
+        {0, 1, 1, 0, 0, 1, 1}, // 4
+        {1, 0, 1, 1, 0, 1, 1}, // 5
+        {1, 0, 1, 1, 1, 1, 1}, // 6
+        {1, 1, 1, 0, 0, 0, 0}, // 7
+        {1, 1, 1, 1, 1, 1, 1}, // 8
+        {1, 1, 1, 1, 0, 1, 1}}; // 9
+
+    const int trans_0_2[2][7] = {
+        {0, 0, 2, 0, 0, 2, 3}, // 2-0
+        {4, 0, 2, 4, 1, 0, 4}}; // 2-1
+    const int trans_0_3[1][7] = {{0, 0, 0, 0, 2, 2, 3}}; // 3-0
+    const int trans_0_5[1][7] = {{0, 2, 0, 0, 2, 0, 3}}; // 5-0
+    const int trans_0_9[10][7] = {// Key is current digit
+                                  {0, 0, 0, 0, 2, 0, 3}, // 9-0
+                                  {4, 0, 0, 4, 4, 4, 0}, // 0-1
+                                  {5, 0, 0, 5, 5, 0, 5}, // 1-2
+                                  {0, 0, 6, 0, 0, 0, 0}, // 2-3
+                                  {3, 0, 0, 4, 0, 2, 0}, // 3-4
+                                  {5, 1, 0, 5, 0, 0, 0}, // 4-5
+                                  {0, 0, 0, 0, 5, 0, 0}, // 5-6
+                                  {0, 6, 0, 4, 4, 4, 4}, // 6-7
+                                  {0, 0, 0, 5, 5, 5, 5}, // 7-8
+                                  {0, 0, 0, 0, 4, 0, 0}}; // 8-9
+    const int trans_0_B[2][7] = {// Key is current digit
+                                 {9, 7, 1, 9, 9, 9, 9}, // 1-
+                                 {9, 8, 2, 9, 9, 9, 9}}; // -1
 };
 #endif // CLOCKWIDGET_H

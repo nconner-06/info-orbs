@@ -127,8 +127,8 @@ void WebDataElementTriangleModel::parseData(const JsonObject &doc, int32_t defau
 
 void WebDataElementTriangleModel::draw(ScreenManager &manager) {
     if (getFilled()) {
-        manager.fillTriangle(getX(), getY(), getX2(), getY2(), getX3(), getY3(), getColor());
+        manager.fillLegacyTriangle(getX(), getY(), getX2(), getY2(), getX3(), getY3(), getColor());
     } else {
-        manager.drawTriangle(getX(), getY(), getX2(), getY2(), getX3(), getY3(), getColor());
+        manager.drawLegacyTriangle(getX(), getY(), getX2(), getY2(), getX3(), getY3(), getColor());
     }
 }

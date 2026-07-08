@@ -1,12 +1,14 @@
 #include "ClockWidget.h"
 #include "ArduinoLog.h"
 #include "ClockTranslations.h"
+#include "MorphClockWidget.h"
 
 ClockWidget::ClockWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
       m_drawTimer(addDrawRefreshFrequency(CLOCK_DRAW_DELAY)),
       m_updateTimer(addUpdateRefreshFrequency(CLOCK_UPDATE_DELAY)) {
-    m_enabled = true; // Always enabled, do not add a config setting for it
+    m_enabled = (INCLUDE_CLOCK == WIDGET_ON);
+    m_time = GlobalTime::getInstance();
     addConfigToManager();
 }
 
@@ -14,15 +16,20 @@ ClockWidget::~ClockWidget() {
 }
 
 void ClockWidget::addConfigToManager() {
-    String optClockType[2 + USE_CLOCK_CUSTOM] = {
+    m_config.addConfigBool("ClockWidget", "clkEnabled", &m_enabled, t_enableWidget);
+
+    String optClockType[3 + USE_CLOCK_CUSTOM] = {
         i18nStr(t_clockNormal),
+        i18nStr(t_clockMorph),
         i18nStr(t_clockNixie)};
+    if (!USE_CLOCK_MORPH)
+        optClockType[(int) ClockType::MORPH] += i18nStr(t_clockNotAvailable);
     if (!USE_CLOCK_NIXIE)
         optClockType[(int) ClockType::NIXIE] += i18nStr(t_clockNotAvailable);
     for (int i = 0; i < USE_CLOCK_CUSTOM; i++) {
         optClockType[(int) ClockType::CUSTOM0 + i] = i18nStr(t_clockCustom) + " " + String(i);
     }
-    m_config.addConfigComboBox("ClockWidget", "defaultType", &m_type, optClockType, 2 + USE_CLOCK_CUSTOM, t_clockDefaultType);
+    m_config.addConfigComboBox("ClockWidget", "defaultType", &m_type, optClockType, 3 + USE_CLOCK_CUSTOM, t_clockDefaultType);
 #if USE_CLOCK_CUSTOM > 0
     // Get enabled setting here to know which clocks are valid,
     // because we did not add the config key for it yet (this happens some lines below)
@@ -37,9 +44,14 @@ void ClockWidget::addConfigToManager() {
     }
     m_config.addConfigComboBox("ClockWidget", "clockFormat", &m_format, t_clockFormats, t_clockFormat);
     m_config.addConfigBool("ClockWidget", "showSecondTicks", &m_showSecondTicks, t_clockShowSecondTicks, true);
+    m_config.addConfigBool("ClockWidget", "showSecond", &m_showSecond, t_clockShowSecond, true);
     m_config.addConfigColor("ClockWidget", "clkColor", &m_fgColor, t_clockColor, true);
     m_config.addConfigBool("ClockWidget", "clkShadowing", &m_shadowing, t_clockShadowing, true);
     m_config.addConfigColor("ClockWidget", "clkShColor", &m_shadowColor, t_clockShadowColor, true);
+#if USE_CLOCK_MORPH > 0
+    m_config.addConfigBool("ClockWidget", "clkMorphEnable", &m_enableMorph, t_clockMorph, true);
+    m_config.addConfigInt("ClockWidget", "clkMorphAnimRt", &m_morphAnimDelay, t_clockMorphRate, true);
+#endif
 #if USE_CLOCK_NIXIE > 0
     m_config.addConfigColor("ClockWidget", "clkNixieColor", &m_overrideNixieColor, t_clockOverrideNixieColor, true);
 #endif
@@ -61,89 +73,85 @@ void ClockWidget::addConfigToManager() {
 }
 
 void ClockWidget::setup() {
-    m_lastDisplay1Digit = "";
-    m_lastDisplay2Digit = "";
-    m_lastDisplay4Digit = "";
-    m_lastDisplay5Digit = "";
+    update(true);
+    m_lastDisplay1Digit = m_display1Digit;
+    m_lastDisplay2Digit = m_display2Digit;
+    m_lastDisplay4Digit = m_display4Digit;
+    m_lastDisplay5Digit = m_display5Digit;
 }
 
 void ClockWidget::draw(bool force) {
     m_manager.setFont(CLOCK_FONT);
-    GlobalTime *time = GlobalTime::getInstance();
 
-    if (m_lastDisplay1Digit != m_display1Digit || force) {
-        displayDigit(0, m_lastDisplay1Digit, m_display1Digit, m_fgColor);
-        m_lastDisplay1Digit = m_display1Digit;
-    }
-    if (m_lastDisplay2Digit != m_display2Digit || force) {
-        displayDigit(1, m_lastDisplay2Digit, m_display2Digit, m_fgColor);
-        m_lastDisplay2Digit = m_display2Digit;
-    }
-    if (m_lastDisplay4Digit != m_display4Digit || force) {
-        displayDigit(3, m_lastDisplay4Digit, m_display4Digit, m_fgColor);
-        m_lastDisplay4Digit = m_display4Digit;
-    }
     if (m_lastDisplay5Digit != m_display5Digit || force) {
+        m_manager.fillSprite(TFT_BLACK);
         displayDigit(4, m_lastDisplay5Digit, m_display5Digit, m_fgColor);
         m_lastDisplay5Digit = m_display5Digit;
+        if (m_type != (int) ClockType::MORPH)
+            m_manager.pushSprite(4, 0, 0);
+    }
+    if (m_lastDisplay4Digit != m_display4Digit || force) {
+        m_manager.fillSprite(TFT_BLACK);
+        displayDigit(3, m_lastDisplay4Digit, m_display4Digit, m_fgColor);
+        m_lastDisplay4Digit = m_display4Digit;
+        if (m_type != (int) ClockType::MORPH)
+            m_manager.pushSprite(3, 0, 0);
     }
 
     if (m_secondSingle != m_lastSecondSingle || force) {
+        m_manager.fillSprite(TFT_BLACK);
         if (m_secondSingle % 2 == 0) {
             displayDigit(2, "", ":", m_fgColor, false);
         } else {
             displayDigit(2, "", ":", m_shadowColor, false);
         }
+
         if (m_showSecondTicks) {
-            if (!isCustomClock(m_type)) {
-                // not a custom clock -> clear background
-                displaySeconds(2, m_lastSecondSingle, TFT_BLACK);
-            }
             displaySeconds(2, m_secondSingle, m_fgColor);
         }
-        m_lastSecondSingle = m_secondSingle;
-        if (m_type == (int) ClockType::NORMAL) {
-            if (m_format == CLOCK_FORMAT_12_HOUR_AMPM) {
-                if (m_amPm != m_lastAmPm) {
-                    // Clear old AM/PM
-                    displayAmPm(m_lastAmPm, TFT_BLACK);
-                    m_lastAmPm = m_amPm;
-                }
-                displayAmPm(m_amPm, m_fgColor);
-            }
-        }
-    }
-}
 
-void ClockWidget::displayAmPm(String &amPm, uint32_t color) {
-    m_manager.selectScreen(2);
-    m_manager.setFontColor(color, TFT_BLACK);
-    // Workaround for 12h AM/PM problem
-    // The colon is slightly offset and that's a problem because to remove them, we paint over them
-    // I think this is related to the TTF cache
-    // The problem disappears if we reload the font here
-    if (CLOCK_FONT == TTF_Font::DSEG7) {
-        // We set a new font anyway
-        m_manager.setFont(TTF_Font::DSEG14);
-    } else {
-        // Force reloading the font
-        m_manager.setFont(TTF_Font::NONE);
-        m_manager.setFont(CLOCK_FONT);
+        m_lastSecondSingle = m_secondSingle;
+
+        m_manager.setFontColor(m_fgColor, TFT_BLACK);
+        if (m_type == (int) ClockType::NORMAL || m_type == (int) ClockType::MORPH) {
+            if (m_type == (int) ClockType::MORPH)
+                m_manager.setFont(DEFAULT_FONT);
+
+            if (m_showSecond)
+                m_manager.drawString(m_time->getSecondPadded(), 190, 162, 20, Align::MiddleCenter);
+
+            if (m_format == CLOCK_FORMAT_12_HOUR_AMPM) {
+                if (m_type == (int) ClockType::NORMAL)
+                    if (CLOCK_FONT == TTF_Font::DSEG7)
+                        m_manager.setFont(TTF_Font::DSEG14);
+                m_manager.drawString(m_amPm, 190, SCREEN_SIZE / 2, 20, Align::MiddleCenter);
+            }
+            m_manager.setFont(CLOCK_FONT);
+        }
+        m_manager.pushSprite(2, 0, 0);
     }
-    m_manager.drawString(amPm, SCREEN_SIZE / 5 * 4, SCREEN_SIZE / 2, 25, Align::MiddleCenter);
+
+    if (m_lastDisplay2Digit != m_display2Digit || force) {
+        m_manager.fillSprite(TFT_BLACK);
+        displayDigit(1, m_lastDisplay2Digit, m_display2Digit, m_fgColor);
+        m_lastDisplay2Digit = m_display2Digit;
+        if (m_type != (int) ClockType::MORPH)
+            m_manager.pushSprite(1, 0, 0);
+    }
+    if (m_lastDisplay1Digit != m_display1Digit || force) {
+        m_manager.fillSprite(TFT_BLACK);
+        displayDigit(0, m_lastDisplay1Digit, m_display1Digit, m_fgColor);
+        m_lastDisplay1Digit = m_display1Digit;
+        if (m_type != (int) ClockType::MORPH)
+            m_manager.pushSprite(0, 0, 0);
+    }
 }
 
 void ClockWidget::update(bool force) {
-
-    GlobalTime *time = GlobalTime::getInstance();
-    if (force) {
-        time->updateTime(true);
-    }
-
-    m_hourSingle = time->getHour();
-    m_minuteSingle = time->getMinute();
-    m_secondSingle = time->getSecond();
-    m_amPm = time->isPM() ? "PM" : "AM";
+    m_hourSingle = m_time->getHour();
+    m_minuteSingle = m_time->getMinute();
+    m_secondSingle = m_time->getSecond();
+    m_amPm = m_time->isPM() ? "PM" : "AM";
 
     if (m_lastHourSingle != m_hourSingle || force) {
         if (m_hourSingle < 10) {
@@ -173,13 +181,16 @@ void ClockWidget::update(bool force) {
 void ClockWidget::changeFormat() {
     GlobalTime *time = GlobalTime::getInstance();
     m_format++;
-    if (m_type == (int) ClockType::NORMAL) {
+    if (m_type == (int) ClockType::NORMAL || m_type == (int) ClockType::MORPH) {
         if (m_format > 2)
             m_format = 0;
     } else if (m_format > 1)
         m_format = 0;
+    m_config.putConfigInt("clockFormat", m_format);
     time->setFormat24Hour(m_format == CLOCK_FORMAT_24_HOUR);
-    m_manager.clearAllScreens();
+    //    m_manager.clearAllScreens();
+    m_lastDisplay1Digit = "";
+    m_lastDisplay2Digit = "";
     update(true);
     draw(true);
 }
@@ -191,6 +202,8 @@ bool ClockWidget::isCustomClock(int clockType) {
 bool ClockWidget::isValidClockType(int clockType) {
     if (clockType == (int) ClockType::NORMAL)
         return true; // Always enabled
+    else if (clockType == (int) ClockType::MORPH)
+        return m_enableMorph; // USE_CLOCK_MORPH;
     else if (clockType == (int) ClockType::NIXIE)
         return USE_CLOCK_NIXIE > 0;
     else if (isCustomClock(clockType)) {
@@ -209,9 +222,12 @@ void ClockWidget::changeClockType() {
         // Call recursively until a valid clock type is found
         changeClockType();
     } else {
-        m_manager.clearAllScreens();
+        //        m_manager.clearAllScreens();
         draw(true);
     }
+}
+
+void ClockWidget::onLeave(bool force) {
 }
 
 void ClockWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
@@ -244,34 +260,29 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
             displayDigitImage(displayIndex, digit);
         }
     } else {
-        // Normal clock
-        int fontSize = CLOCK_FONT_SIZE;
-        char c = digit.charAt(0);
-        bool isDigit = c >= '0' && c <= '9' || c == ' ';
-        int defaultX = SCREEN_SIZE / 2 + (isDigit ? CLOCK_OFFSET_X_DIGITS : CLOCK_OFFSET_X_COLON);
-        int defaultY = SCREEN_SIZE / 2;
-        DigitOffset digitOffset = getOffsetForDigit(digit);
-        DigitOffset lastDigitOffset = getOffsetForDigit(lastDigit);
-        m_manager.selectScreen(displayIndex);
-        if (shadowing) {
-            m_manager.setFontColor(m_shadowColor, TFT_BLACK);
-            if (CLOCK_FONT == DSEG14) {
-                // DSEG14 (from DSEGstended) uses # to fill all segments
-                m_manager.drawString("#", defaultX, defaultY, fontSize, Align::MiddleCenter);
-            } else if (CLOCK_FONT == DSEG7) {
-                // DESG7 uses 8 to fill all segments
-                m_manager.drawString("8", defaultX, defaultY, fontSize, Align::MiddleCenter);
-            } else {
-                // Other fonts can't be shadowed
-                m_manager.setFontColor(TFT_BLACK, TFT_BLACK);
-                m_manager.drawString(lastDigit, defaultX + lastDigitOffset.x, defaultY + lastDigitOffset.y, fontSize, Align::MiddleCenter);
-            }
+        if ((m_type == (int) ClockType::MORPH) && (displayIndex != 2)) {
+            displayMorphDigit(displayIndex, lastDigit, digit, color);
         } else {
-            m_manager.setFontColor(TFT_BLACK, TFT_BLACK);
-            m_manager.drawString(lastDigit, defaultX + lastDigitOffset.x, defaultY + lastDigitOffset.y, fontSize, Align::MiddleCenter);
+            // Normal clock
+            int fontSize = CLOCK_FONT_SIZE;
+            char c = digit.charAt(0);
+            bool isDigit = c >= '0' && c <= '9' || c == ' ';
+            int defaultX = SCREEN_SIZE / 2; // + (isDigit ? CLOCK_OFFSET_X_DIGITS : CLOCK_OFFSET_X_COLON);
+            int defaultY = SCREEN_SIZE / 2;
+            DigitOffset digitOffset = getOffsetForDigit(digit);
+            if (shadowing) {
+                m_manager.setFontColor(m_shadowColor, TFT_BLACK);
+                if (CLOCK_FONT == DSEG14) {
+                    // DSEG14 (from DSEGstended) uses # to fill all segments
+                    m_manager.drawString("#", defaultX, defaultY, fontSize, Align::MiddleCenter);
+                } else if (CLOCK_FONT == DSEG7) {
+                    // DESG7 uses 8 to fill all segments
+                    m_manager.drawString("8", defaultX, defaultY, fontSize, Align::MiddleCenter);
+                }
+            }
+            m_manager.setFontColor(color, TFT_BLACK);
+            m_manager.drawString(digit, defaultX + digitOffset.x, defaultY + digitOffset.y, fontSize, Align::MiddleCenter);
         }
-        m_manager.setFontColor(color, TFT_BLACK);
-        m_manager.drawString(digit, defaultX + digitOffset.x, defaultY + digitOffset.y, fontSize, Align::MiddleCenter);
     }
     uint32_t end = millis();
 #ifdef CLOCK_DEBUG
@@ -284,7 +295,7 @@ void ClockWidget::displayDigit(int displayIndex, const String &lastDigit, const 
 }
 
 void ClockWidget::displaySeconds(int displayIndex, int seconds, int color) {
-    if (color != m_fgColor && m_type != (int) ClockType::NORMAL) {
+    if (color != m_fgColor && (isCustomClock(m_type) || m_type == (int) ClockType::NIXIE)) {
         // ignore clear tick (we draw the whole image anyway)
         return;
     }
@@ -300,7 +311,6 @@ void ClockWidget::displaySeconds(int displayIndex, int seconds, int color) {
         String tickColorKey = "clkCust" + String(m_type - (int) ClockType::CUSTOM0) + "tckCol";
         color = m_config.getConfigInt(tickColorKey.c_str(), TFT_WHITE);
     }
-    m_manager.selectScreen(displayIndex);
     int startA = ((seconds * 6) + 180 - 3) % 360;
     int endA = ((seconds * 6) + 180 + 3) % 360;
     m_manager.drawSmoothArc(SCREEN_SIZE / 2, SCREEN_SIZE / 2, 120, 110, startA, endA, color, TFT_BLACK);
@@ -338,14 +348,12 @@ void ClockWidget::displayCustom(int displayIndex, uint8_t clockNumber, uint8_t i
 #if USE_CLOCK_CUSTOM > 0
     String ovrColorKey = "clkCust" + String(clockNumber) + "ovrCol";
     int ovrColor = m_config.getConfigInt(ovrColorKey.c_str(), TFT_BLACK);
-    m_manager.selectScreen(displayIndex);
     String name = "/CustomClock" + String(clockNumber) + "/" + String(index) + ".jpg";
     m_manager.drawFsJpg(0, 0, name.c_str(), 1, ovrColor);
 #endif
 }
 
 void ClockWidget::displayClockGraphics(int displayIndex, const byte *clockArray[12][2], uint8_t index, int colorOverride) {
-    m_manager.selectScreen(displayIndex);
     const byte *start = clockArray[index][0];
     const byte *end = clockArray[index][1];
     m_manager.drawJpg(0, 0, start, end - start, 1, colorOverride);

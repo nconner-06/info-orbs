@@ -6,7 +6,7 @@
 // All translation variables for StockWidget should start with "t_stock"
 
 constexpr Translation t_stockList = {
-    "List of securities to track.  If there are more securities than the number of screens, your list will paginate. You can track forex, crypto (symbol/USD) or stocks from any exchange (if one ticker is part of multiple exchanges you can add on '&country = Canada' to narrow down to your ticker)", // EN
+    "List of securities to track.  If there are more securities than the number of screens, your list will paginate. You can track forex, crypto (symbol/USD) or stocks from any exchange (if one ticker is part of multiple exchanges you can add on '&country=Canada' to narrow down to your ticker)", // EN
     nullptr, // DE
     nullptr, // FR
 };
@@ -39,4 +39,14 @@ constexpr Translation t_stockSwitchInterval = {
     "Time to disply before paginating, set to 0 to disable auto pagination", // EN
     nullptr, // DE
     nullptr, // FR
+};
+
+constexpr Translation t_showSecondTickS = {
+    "Show Second Ticks", // EN
+};
+
+constexpr Translation t_showClockS = {
+    "Show clock on first screen", // EN
+    "Uhr auf dem ersten Bildschirm anzeigen", // DE
+    "Afficher l'horloge sur le premier écran" // FR
 };

@@ -16,6 +16,7 @@ public:
     virtual void setup() = 0;
     virtual void update(bool force = false) = 0;
     virtual void draw(bool force = false) = 0;
+    virtual void onLeave(bool force = false) = 0;
     virtual void buttonPressed(uint8_t buttonId, ButtonState state) = 0;
     virtual String getName() = 0;
 
@@ -23,8 +24,8 @@ public:
     WidgetTimer &addUpdateRefreshFrequency(TimeFrequency frequency);
     void resetTimer(WidgetTimer &timer);
 
-    void setBusy(bool busy);
     bool isEnabled();
+    void setEnabled();
 
     bool isItTimeToDraw();
     bool isItTimeToUpdate();

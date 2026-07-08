@@ -108,8 +108,8 @@ void WebDataElementRectangleModel::parseData(const JsonObject &doc, int32_t defa
 
 void WebDataElementRectangleModel::draw(ScreenManager &manager) {
     if (getFilled()) {
-        manager.fillRect(getX(), getY(), getWidth(), getHeight(), getColor());
+        manager.fillLegacyRect(getX(), getY(), getWidth(), getHeight(), getColor());
     } else {
-        manager.drawRect(getX(), getY(), getWidth(), getHeight(), getColor());
+        manager.drawLegacyRect(getX(), getY(), getWidth(), getHeight(), getColor());
     }
 }

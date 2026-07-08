@@ -3,10 +3,10 @@
 #include "Translations.h"
 #include "config_helper.h"
 #include "icons.h"
+#include "time.h"
 #include <ArduinoLog.h>
 #include <GlobalTime.h>
 #include <HTTPClient.h>
-#include <TimeLib.h>
 #include <esp_task_wdt.h>
 #include <nvs_flash.h>
 
@@ -21,13 +21,18 @@ static int s_widgetCycleDelay = WIDGET_CYCLE_DELAY;
 static unsigned long s_widgetCycleDelayPrev = 0;
 static int s_orbRotation = ORB_ROTATION;
 static std::string s_timezoneLocation = TIMEZONE_API_LOCATION;
+static int s_timezone = 0;
 static std::string s_ntpServer = NTP_SERVER;
 static int s_tftBrightness = TFT_BRIGHTNESS;
+static bool s_autoDimming = AUTO_DIMMING_ENABLED;
 static bool s_nightMode = DIM_ENABLED;
 static int s_dimStartHour = DIM_START_HOUR;
 static int s_dimEndHour = DIM_END_HOUR;
 static int s_dimBrightness = DIM_BRIGHTNESS;
 static int s_languageId = DEFAULT_LANGUAGE;
+static int s_busyPin = BUSY_PIN;
+static int s_ledType = LED_TYPE;
+static int s_ledColor = LED_COLOR;
 
 void MainHelper::init(WiFiManager *wm, ConfigManager *cm, ScreenManager *sm, WidgetSet *ws) {
     s_wifiManager = wm;
@@ -67,12 +72,17 @@ void MainHelper::setupButtons() {
 void MainHelper::setupConfig() {
     // Set language here to get i18n strings for the configuration
     I18n::setLanguageId(s_configManager->getConfigInt("lang", DEFAULT_LANGUAGE));
-    s_configManager->addConfigString("General", "timezoneLoc", &s_timezoneLocation, 30, t_timezoneLoc);
     String *optLang = I18n::getAllLanguages();
     s_configManager->addConfigComboBox("General", "lang", &s_languageId, optLang, LANG_NUM, t_language);
+    s_configManager->addConfigComboBox("General", "timezone", &s_timezone, tz_list, 101, t_timezone);
     s_configManager->addConfigInt("General", "widgetCycDelay", &s_widgetCycleDelay, t_widgetCycleDelay);
     s_configManager->addConfigString("General", "ntpServer", &s_ntpServer, 30, t_ntpServer, true);
+    s_configManager->addConfigColor("General", "ledColor", &s_ledColor, t_ledColor, true);
     s_configManager->addConfigComboBox("TFT Settings", "orbRotation", &s_orbRotation, t_orbRot, t_orbRotation);
+    if (AUTO_DIMMING_ENABLED)
+        s_configManager->addConfigBool("TFT Settings", "autodim", &s_autoDimming, t_autodimmer);
+    else
+        s_autoDimming = false;
     s_configManager->addConfigBool("TFT Settings", "nightmode", &s_nightMode, t_nightmode);
     s_configManager->addConfigInt("TFT Settings", "tftBrightness", &s_tftBrightness, t_tftBrightness, true);
     String optHours[] = {"0:00", "1:00", "2:00", "3:00", "4:00", "5:00", "6:00", "7:00", "8:00", "9:00", "10:00", "11:00",
@@ -90,26 +100,26 @@ void MainHelper::buttonPressed(uint8_t buttonId, ButtonState state) {
     // Reset cycle timer whenever a button is pressed
     if (buttonId == BUTTON_LEFT && state == BTN_SHORT) {
         // Left short press cycles widgets backward
-        Log.noticeln("Left button short pressed -> switch to prev Widget");
+        Log.infoln("Left button short pressed -> switch to prev Widget");
         s_widgetCycleDelayPrev = millis();
         s_widgetSet->prev();
     } else if (buttonId == BUTTON_RIGHT && state == BTN_SHORT) {
         // Right short press cycles widgets forward
-        Log.noticeln("Right button short pressed -> switch to next Widget");
+        Log.infoln("Right button short pressed -> switch to next Widget");
         s_widgetCycleDelayPrev = millis();
         s_widgetSet->next();
     } else {
         // Everything else that is not BTN_NOTHING will be forwarded to the current widget
         if (buttonId == BUTTON_LEFT) {
-            Log.noticeln("Left button pressed, state=%d", state);
+            Log.infoln("Left button pressed, state=%d", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_LEFT, state);
         } else if (buttonId == BUTTON_MIDDLE) {
-            Log.noticeln("Middle button pressed, state=%d", state);
+            Log.infoln("Middle button pressed, state=%d", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_MIDDLE, state);
         } else if (buttonId == BUTTON_RIGHT) {
-            Log.noticeln("Right button pressed, state=%d", state);
+            Log.infoln("Right button pressed, state=%d", state);
             s_widgetCycleDelayPrev = millis();
             s_widgetSet->buttonPressed(BUTTON_RIGHT, state);
         }
@@ -117,9 +127,10 @@ void MainHelper::buttonPressed(uint8_t buttonId, ButtonState state) {
 }
 
 void MainHelper::checkButtons() {
+
     ButtonState leftState = buttonLeft.getState();
     if (leftState == BTN_VERY_LONG) {
-        Log.noticeln("Left button very long press detected -> Erasing NVS");
+        Log.infoln("Left button very long press detected -> Erasing NVS");
         eraseNVSAndRestart();
         return;
     }
@@ -141,6 +152,43 @@ void MainHelper::checkCycleWidgets() {
         s_widgetSet->next();
         s_widgetCycleDelayPrev = millis();
     }
+}
+
+void MainHelper::handleEndpointSwitchApp() {
+    if (s_wifiManager->server->hasArg("app")) {
+        bool lv_found = false;
+        bool lv_enable = false;
+        int lv_widgetId = 0;
+        String appName = s_wifiManager->server->arg("app");
+        int lv_widgetCount = s_widgetSet->getWidgetCount();
+        Widget *lv_widget;
+
+        for (uint8_t i = 0; i < lv_widgetCount; i++) {
+            lv_widget = s_widgetSet->getWidget(i);
+            if (lv_widget->getName() == appName) {
+                lv_found = true;
+                lv_enable = lv_widget->isEnabled();
+                lv_widgetId = i;
+                break;
+            }
+        }
+#ifdef DEBUG_HELPER
+        Log.infoln("Checked apps : %i", lv_widgetId);
+#endif
+        if (!lv_found) {
+            s_wifiManager->server->send(404, "text/plain", "Application Not found.");
+        } else {
+            if (!lv_enable) {
+                s_wifiManager->server->send(500, "text/plain", "Application not enabled.");
+            } else {
+                s_widgetSet->switchToWidget(lv_widgetId);
+                s_wifiManager->server->send(200, "text/plain", "OK ");
+                return;
+            }
+        }
+        s_wifiManager->server->send(500, "text/plain", "ERR");
+    } else
+        s_wifiManager->server->send(500, "text/plain", "ERR");
 }
 
 // Handle simulated button state
@@ -166,9 +214,9 @@ void MainHelper::handleEndpointButtons() {
     msg += WEBPORTAL_BUTTONS_STYLE;
     msg += WEBPORTAL_BUTTONS_PAGE_START2;
     String buttons[] = {"left", "middle", "right"};
-    String states[] = {"short", "medium", "long"};
+    String states[] = {"short", "medium", "long", "longer"};
     int numButtons = 3; // number of buttons
-    int numStates = 3; // number of states
+    int numStates = 4; // number of states
     for (int s = 0; s < numStates; s++) {
         msg += "<tr>";
         for (int b = 0; b < numButtons; b++) {
@@ -306,7 +354,7 @@ void MainHelper::handleEndpointFetchFilesFromURL() {
         String filePath = currentDir + fileName;
         String fileUrl = url + "/" + fileName;
 
-        Log.noticeln("Downloading %s to %s", fileUrl.c_str(), filePath.c_str());
+        Log.infoln("Downloading %s to %s", fileUrl.c_str(), filePath.c_str());
 
         HTTPClient http;
         // Initialize HTTP connection
@@ -325,7 +373,7 @@ void MainHelper::handleEndpointFetchFilesFromURL() {
                         file.write(buffer, sizeRead);
                     }
 
-                    Log.noticeln("Downloaded: %s (%d)", fileName.c_str(), file.size());
+                    Log.infoln("Downloaded: %s (%d)", fileName.c_str(), file.size());
                     file.close();
                 } else {
                     Log.errorln("Failed to open file for writing: %s", filePath.c_str());
@@ -360,7 +408,7 @@ void MainHelper::handleEndpointUploadFile() {
     String filePath = uploadDir + upload.filename;
 
     if (upload.status == UPLOAD_FILE_START) {
-        Log.noticeln("Upload Start: %s", filePath.c_str());
+        Log.infoln("Upload Start: %s", filePath.c_str());
 
         // Ensure the directory exists
         if (!LittleFS.exists(uploadDir)) {
@@ -407,7 +455,7 @@ void MainHelper::handleEndpointDeleteFile() {
 
     if (LittleFS.exists(filePath)) {
         LittleFS.remove(filePath);
-        Log.noticeln("File deleted: %s", filePath.c_str());
+        Log.infoln("File deleted: %s", filePath.c_str());
         s_wifiManager->server->send(200, "text/html", "<h2>File deleted successfully!</h2><a href='/browse?dir=" + dir + "'>Back to file list</a>");
     } else {
         s_wifiManager->server->send(404, "text/html", "<h2>File not found</h2><a href='/browse?dir=" + dir + "'>Back to file list</a>");
@@ -424,13 +472,14 @@ void MainHelper::setupWebPortalEndpoints() {
     s_wifiManager->server->on(
         "/upload", HTTP_POST, [] { s_wifiManager->server->send(200, "text/html", "<h2>File uploaded successfully!</h2><a href='/browse?dir=" + s_wifiManager->server->arg("dir") + "'>Back to file list</a>"); }, handleEndpointUploadFile);
     s_wifiManager->server->on("/delete", HTTP_GET, handleEndpointDeleteFile);
+    s_wifiManager->server->on("/switch", handleEndpointSwitchApp);
 }
 
 void MainHelper::showWelcome() {
     s_screenManager->fillAllScreens(TFT_BLACK);
     s_screenManager->setFontColor(TFT_WHITE);
 
-    s_screenManager->selectScreen(0);
+    s_screenManager->fillSprite(TFT_BLACK);
     s_screenManager->drawCentreString(i18n(t_welcome), ScreenCenterX, ScreenCenterY, 29);
     if (GIT_BRANCH != "main" && GIT_BRANCH != "unknown" && GIT_BRANCH != "HEAD") {
         s_screenManager->setFontColor(TFT_RED);
@@ -438,8 +487,9 @@ void MainHelper::showWelcome() {
         s_screenManager->drawCentreString(GIT_COMMIT_ID, ScreenCenterX, ScreenCenterY + 40, 15);
         s_screenManager->setFontColor(TFT_WHITE);
     }
+    s_screenManager->pushSprite(0, 0, 0);
 
-    s_screenManager->selectScreen(1);
+    s_screenManager->fillSprite(TFT_BLACK);
     s_screenManager->drawCentreString(i18n(t_infoOrbs), ScreenCenterX, ScreenCenterY - 50, 22);
     s_screenManager->drawCentreString(i18n(t_by), ScreenCenterX, ScreenCenterY - 5, 22);
     s_screenManager->drawCentreString(i18n(t_brettTech), ScreenCenterX, ScreenCenterY + 30, 22);
@@ -447,9 +497,11 @@ void MainHelper::showWelcome() {
     // VERSION is defined in MainHelper.h
     const auto version = String(i18n(t_version)) + " " + String(VERSION);
     s_screenManager->drawCentreString(version, ScreenCenterX, ScreenCenterY + 65, 15);
+    s_screenManager->pushSprite(1, 0, 0);
 
-    s_screenManager->selectScreen(2);
+    s_screenManager->fillSprite(TFT_BLACK);
     s_screenManager->drawJpg(0, 0, logo_start, logo_end - logo_start);
+    s_screenManager->pushSprite(2, 0, 0);
 }
 
 void MainHelper::resetCycleTimer() {
@@ -487,7 +539,7 @@ void MainHelper::restartIfNecessary() {
             // to avoid a browser timeout
             s_wifiManager->process();
         }
-        Log.noticeln("Restarting ESP now");
+        Log.infoln("Restarting ESP now");
         ESP.restart();
     }
 }
@@ -500,13 +552,13 @@ void MainHelper::setupLittleFS() {
 }
 
 void MainHelper::watchdogInit() {
-    Log.noticeln("Initializing watchdog timer to %d seconds... ", WDT_TIMEOUT);
+    Log.infoln("Initializing watchdog timer to %d seconds... ", WDT_TIMEOUT);
     // Initialize the watchdog timer for the main task
     if (esp_task_wdt_init(WDT_TIMEOUT, true) == ESP_OK) {
-        Log.noticeln("done!");
+        //        Log.infoln("done!");
         // Add the main task to the watchdog
         if (esp_task_wdt_add(nullptr) == ESP_OK) {
-            Log.noticeln("Main task added to watchdog.");
+            Log.infoln("Main task added to watchdog.");
         } else {
             Log.errorln("Failed to add main task to watchdog.");
         }
@@ -526,20 +578,38 @@ void MainHelper::printPrefix(Print *_logOutput, int logLevel) {
 #else
     time_t now_s = 0;
 #endif
+    struct tm *lv_Time = gmtime(&now_s);
     if (now_s == 0) {
         unsigned long now_ms = millis(); // Fall back to hardware time if we don't have a valid time yet
         now_s = now_ms / 1000;
-        sprintf(timestamp, "%02d:%02d:%02d.%03d ", hour(now_s), minute(now_s), second(now_s), now_ms % 1000);
+        lv_Time = gmtime(&now_s);
+        sprintf(timestamp, "%02d:%02d:%02d.%03d ", lv_Time->tm_hour, lv_Time->tm_min, lv_Time->tm_sec, now_ms % 1000);
     } else {
-        sprintf(timestamp, "%02d:%02d:%02d ", hour(now_s), minute(now_s), second(now_s));
+        sprintf(timestamp, "%02d:%02d:%02d ", lv_Time->tm_hour, lv_Time->tm_min, lv_Time->tm_sec);
     }
     _logOutput->print(timestamp);
 }
 
 void MainHelper::eraseNVSAndRestart() {
-    Log.noticeln("Erasing NVS and restarting ESP...");
+    Log.infoln("Erasing NVS and restarting ESP...");
     nvs_flash_erase();
     nvs_flash_init();
-    Log.noticeln("Restarting ESP after NVS erase");
+    Log.infoln("Restarting ESP after NVS erase");
     ESP.restart();
+}
+
+int MainHelper::getLedType() {
+    return s_ledType;
+}
+
+int MainHelper::getBusyPin() {
+    return s_busyPin;
+}
+
+int MainHelper::getLedColor() {
+    return s_ledColor;
+}
+
+bool MainHelper::getAutoDim() {
+    return s_autoDimming;
 }

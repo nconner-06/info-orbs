@@ -80,5 +80,5 @@ void WebDataElementLineModel::parseData(const JsonObject &doc, int32_t defaultCo
 }
 
 void WebDataElementLineModel::draw(ScreenManager &manager) {
-    manager.drawLine(getX(), getY(), getX2(), getY2(), getColor());
+    manager.drawLegacyLine(getX(), getY(), getX2(), getY2(), getColor());
 }

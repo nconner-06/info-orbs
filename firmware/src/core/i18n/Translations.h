@@ -14,6 +14,8 @@ extern Translation t_by;
 extern Translation t_brettTech;
 extern Translation t_version;
 extern Translation t_loadingData;
+extern Translation t_error;
+extern Translation t_invalid;
 extern Translation t_enableWidget;
 extern Translation t_timezoneLoc;
 extern Translation t_language;
@@ -22,6 +24,7 @@ extern Translation t_ntpServer;
 extern Translation t_orbRotation;
 extern TranslationMulti<4> t_orbRot;
 extern Translation t_nightmode;
+extern Translation t_autodimmer;
 extern Translation t_tftBrightness;
 extern Translation t_dimStartHour;
 extern Translation t_dimEndHour;
@@ -37,5 +40,8 @@ extern TranslationMulti<2> t_screenModes;
 extern TranslationMulti<12> t_months;
 extern TranslationMulti<7> t_weekdays;
 extern Translation t_dayMonthFormat;
+extern Translation t_ledColor;
+extern Translation t_timezone;
+extern TranslationMulti<101> t_timeZones;
 
 #endif // TRANSLATIONS_H

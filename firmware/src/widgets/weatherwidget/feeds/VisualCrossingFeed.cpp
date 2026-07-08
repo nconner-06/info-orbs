@@ -26,8 +26,10 @@ bool VisualCrossingFeed::getWeatherData(WeatherDataModel &model) {
                                 String(m_weatherLocation.c_str()) + "/next3days?key=" + apiKey + "&unitGroup=" + tempUnits +
                                 "&include=days,current&iconSet=icons1&lang=" + lang;
 
+    String filter = "";
+
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
+        httpRequestAddress, filter, [this, &model](int httpCode, const String &response) { processResponse(httpCode, response, model); }, [this](int httpCode, String &response) { preProcessResponse(httpCode, response); });
 
     if (!task) {
         Log.errorln("Failed to create weather task");

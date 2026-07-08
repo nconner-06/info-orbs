@@ -28,3 +28,23 @@ constexpr Translation t_5zoneWorkEndDesc = {
 constexpr Translation t_5zoneShowBizHours = {
     "Use Business hour functions", // EN
 };
+
+constexpr Translation t_clockShowSecondTick = {
+    "Show Second Ticks", // EN
+};
+
+constexpr Translation t_dimOrg = {
+    "Show Second Tick on Orb", // EN
+};
+
+constexpr Translation t_5zoneFormat = {
+    "Clock Format", // EN
+};
+
+constexpr TranslationMulti<2> t_5zoneFormats = {
+    {
+        "24h mode", // EN
+    },
+    {
+        "12h mode (with am/pm)", // EN
+    }};

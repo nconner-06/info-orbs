@@ -73,7 +73,7 @@ void ConfigManager::setupWebPortal() {
     bool advancedOpen = false;
     for (auto &param : m_parameters) {
 #ifdef CM_DEBUG
-        Log.traceln("Adding WebPortal parameter: %s, %s", param.section, param.variableName);
+        Log.infoln("Adding WebPortal parameter: %s, %s", param.section, param.variableName);
 #endif
         if (strcmp(lastSection, param.section) != 0) {
             Log.infoln("New config section: %s", param.section);
@@ -104,6 +104,7 @@ void ConfigManager::setupWebPortal() {
         m_wm.addParameter(param.parameter);
         m_wm.addParameter(&s_divEnd);
     }
+
     if (lastSection[0] != '\0') {
         // At least one section was created (should always be true...)
         if (advancedOpen) {
@@ -122,7 +123,7 @@ void ConfigManager::setupWebPortal() {
 #ifdef CM_DEBUG
         Log.traceln("Variables saved in WebPortal");
         for (int i = 0; i < count; i++) {
-            Log.traceln("Arg %d: %s = %s", i, m_wm.server->argName(i).c_str(), m_wm.server->arg(i).c_str());
+            Log.infoln("Arg %d: %s = %s", i, m_wm.server->argName(i).c_str(), m_wm.server->arg(i).c_str());
         }
 #endif
         if (count > 0) {
@@ -134,6 +135,8 @@ void ConfigManager::setupWebPortal() {
             Log.infoln("No config values to save found. Skipping.");
         }
     });
+
+    //    m_wm.extractParams();
 }
 
 void ConfigManager::saveAllConfigs() {
@@ -292,4 +295,8 @@ void ConfigManager::addOnChangeCallback(
 void ConfigManager::addOnChangeCallback(
     const char *section, const std::function<void(const char *section, const char *varName)> &callback) {
     m_changeCallbacks[section].push_back(callback);
+}
+
+void ConfigManager::putConfigInt(const char *varName, int var) {
+    m_preferences.putInt(varName, var);
 }

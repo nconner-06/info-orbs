@@ -26,16 +26,12 @@ void Widget::resetTimer(WidgetTimer &timer) {
     timer.reset();
 }
 
-void Widget::setBusy(bool busy) {
-    if (busy) {
-        digitalWrite(BUSY_PIN, HIGH);
-    } else {
-        digitalWrite(BUSY_PIN, LOW);
-    }
-}
-
 bool Widget::isEnabled() {
     return m_enabled;
+}
+
+void Widget::setEnabled() {
+    m_enabled = true;
 }
 
 bool Widget::isItTimeToDraw() {

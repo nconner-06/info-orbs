@@ -1,6 +1,7 @@
 #include "ParqetDataModel.h"
 #include "Utils.h"
 #include "config_helper.h"
+#include <ArduinoLog.h>
 
 ParqetDataModel::ParqetDataModel() {
 }
@@ -18,7 +19,7 @@ void sortHoldings(ParqetHoldingDataModel *holdings, int size) {
 }
 
 void ParqetDataModel::setHoldings(ParqetHoldingDataModel *holdings, int count) {
-    Serial.printf("setHolding() count=%d\n", count);
+    Log.infoln("setHolding() count=%d", count);
     // Delete old array
     delete[] m_holdings;
     // Assign new array
@@ -32,7 +33,7 @@ ParqetHoldingDataModel &ParqetDataModel::getHolding(int index) {
 }
 
 void ParqetDataModel::setChartData(float *chartData, int count) {
-    Serial.printf("setChartData() count=%d\n", count);
+    Log.infoln("setChartData() count=%d", count);
     // Delete old array
     delete[] m_chartdata;
     // Assign new array
@@ -41,7 +42,7 @@ void ParqetDataModel::setChartData(float *chartData, int count) {
 }
 
 void ParqetDataModel::clearChartData() {
-    Serial.println("clearChartData()");
+    Log.infoln("clearChartData()");
     setChartData(new float[0], 0);
 }
 

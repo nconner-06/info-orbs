@@ -8,6 +8,8 @@
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <TJpg_Decoder.h>
+#include <math.h>
+#include "pngle.h"
 
 #define NUM_SCREENS 5
 
@@ -21,7 +23,7 @@
 
 class ScreenManager {
 public:
-    ScreenManager(TFT_eSPI &tft);
+    ScreenManager(TFT_eSPI &tft, TFT_eSprite &spr);
 
     void selectScreen(int screen);
     void selectAllScreens();
@@ -57,7 +59,7 @@ public:
     void drawFittedString(const String &text, int x, int y, int limit_w, int limit_h, Align align);
     void drawFittedString(const String &text, int x, int y, int limit_w, int limit_h);
 
-    // Drawing stuff
+    // Drawing stuff uses m_spr
     void drawRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
     void fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
     void drawLine(int32_t xs, int32_t ys, int32_t xe, int32_t ye, uint32_t color);
@@ -67,6 +69,29 @@ public:
     void fillTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color);
     void drawCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
     void fillCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
+    void drawRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color);
+    void fillRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color);
+    void drawEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color);
+    void fillEllipse(int16_t x, int16_t y, int32_t rx, int32_t ry, uint16_t color);
+    void drawSmoothCircle(int32_t x, int32_t y, int32_t r, uint32_t fg_color, uint32_t bg_color);
+    void fillSmoothCircle(int32_t x, int32_t y, int32_t r, uint32_t fg_color, uint32_t bg_color = 0x00FFFFFF);
+    void drawSmoothRoundRect(int32_t x, int32_t y, int32_t r, int32_t ir, int32_t w, int32_t h, uint32_t fg_color, uint32_t bg_color = 0x00FFFFFF, uint8_t quadrants = 0xF);
+    void fillSmoothRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t fg_color, uint32_t bg_color = 0x00FFFFFF);
+    void drawWideLine(float ax, float ay, float bx, float by, float wd, uint32_t fg_color, uint32_t bg_color = 0x00FFFFFF);
+    void drawWedgeLine(float ax, float ay, float bx, float by, float aw, float bw, uint32_t fg_color, uint32_t bg_color = 0x00FFFFFF);
+
+    // Uses m_tft
+    void drawLegacyRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+    void fillLegacyRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color);
+    void drawLegacyLine(int32_t xs, int32_t ys, int32_t xe, int32_t ye, uint32_t color);
+    void drawLegacyArc(int32_t x, int32_t y, int32_t r, int32_t ir, uint32_t startAngle, uint32_t endAngle, uint32_t fg_color, uint32_t bg_color, bool smoothArc = true);
+    void drawLegacyTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color);
+    void fillLegacyTriangle(int32_t x1, int32_t y1, int32_t x2, int32_t y2, int32_t x3, int32_t y3, uint32_t color);
+    void drawLegacyCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
+    void fillLegacyCircle(int32_t x, int32_t y, int32_t r, uint32_t color);
+
+    void drawPixel(int32_t x, int32_t y, int32_t color);
+    void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t *data);
 
     // Legacy text function (not using TTF)
     int16_t getLegacyFontHeight();
@@ -81,10 +106,11 @@ public:
 
     // Image functions
     static bool tftOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
+    static bool sprOutput(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap);
     JRESULT drawJpg(int32_t x, int32_t y, const uint8_t jpeg_data[], uint32_t data_size, uint8_t scale = 1, uint32_t imageColor = 0);
     JRESULT drawFsJpg(int32_t x, int32_t y, const char *filename, uint8_t scale = 1, uint32_t imageColor = 0);
 
-    // Additional functions used by MatrixWidget
+    // Additional functions used by MatrixWidget uses m_tft
     int16_t width();
     int16_t height();
     void setTextColor(uint16_t c);
@@ -96,11 +122,20 @@ public:
     void print(String s);
     void print(char c);
 
+    // Additional functions used by MorphClock type - now all display except Matrix and WebData
+    void createSprite(int32_t w, int32_t h);
+    void pushSprite(int displayIndex, int32_t x, int32_t y);
+    void fillSprite(uint32_t color);
+    void loadPngFile(fs::FS &fs, const char *path);
+    static void pngle_on_draw(pngle_t *pngle, uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint8_t rgba[4]);
+    void setPngCb(pngle_draw_callback_t pngCallBack);
+
 private:
     static ScreenManager *instance;
 
     uint8_t m_screen_cs[5] = {SCREEN_1_CS, SCREEN_2_CS, SCREEN_3_CS, SCREEN_4_CS, SCREEN_5_CS};
     TFT_eSPI &m_tft;
+    TFT_eSprite &m_spr;
     OpenFontRender m_render;
     TTF_Font m_curFont = TTF_Font::NONE;
     uint8_t m_brightness = TFT_BRIGHTNESS;
@@ -109,7 +144,10 @@ private:
     TFT_eSPI &getDisplay();
     OpenFontRender &getRender();
     unsigned int getScaledFontSize(unsigned int fontSize);
+    unsigned int s_getScaledFontSize(unsigned int fontSize);
     uint16_t dim(uint16_t color);
+    TFT_eSprite &getSprite();
+    pngle_draw_callback_t pngCallback = nullptr;
 };
 
 #endif // SCREENMANAGER_H

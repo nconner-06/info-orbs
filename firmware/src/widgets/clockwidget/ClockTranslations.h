@@ -12,6 +12,7 @@ extern Translation t_clockDefaultType;
 extern Translation t_clockFormat;
 extern TranslationMulti<3> t_clockFormats;
 extern Translation t_clockShowSecondTicks;
+extern Translation t_clockShowSecond;
 extern Translation t_clockColor;
 extern Translation t_clockShadowing;
 extern Translation t_clockShadowColor;
@@ -19,5 +20,8 @@ extern Translation t_clockOverrideNixieColor;
 extern Translation t_clockEnable;
 extern Translation t_clockSecondsTickColor;
 extern Translation t_clockOverrideColor;
+extern Translation t_clockMorph;
+extern Translation t_clockMorphRate;
+extern Translation t_waitingTZinfo;
 
 #endif // CLOCKTRANSLATIONS_H

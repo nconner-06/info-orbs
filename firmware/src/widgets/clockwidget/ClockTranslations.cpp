@@ -44,6 +44,10 @@ constexpr Translation t_clockShowSecondTicks = {
     "Show Second Ticks", // EN
 };
 
+constexpr Translation t_clockShowSecond = {
+    "Show Seconds", // EN
+};
+
 constexpr Translation t_clockColor = {
     "Clock Color", // EN
 };
@@ -70,4 +74,16 @@ constexpr Translation t_clockSecondsTickColor = {
 
 constexpr Translation t_clockOverrideColor = {
     "Override Color (black=disable)", // EN
+};
+
+constexpr Translation t_clockMorph = {
+    "Morph clock", // EN
+};
+
+constexpr Translation t_clockMorphRate = {
+    "Morph clock animation rate", // EN
+};
+
+constexpr Translation t_waitingTZinfo = {
+    "Waiting TZ information", // EN
 };

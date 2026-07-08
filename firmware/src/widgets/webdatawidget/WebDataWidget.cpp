@@ -1,5 +1,6 @@
 
 #include "WebDataWidget.h"
+#include <ArduinoLog.h>
 
 WebDataWidget::WebDataWidget(ScreenManager &manager, ConfigManager &config, String url) : Widget(manager, config) {
     httpRequestAddress = url;
@@ -60,14 +61,17 @@ void WebDataWidget::update(bool force) {
                 m_lastUpdate = millis();
             } else {
                 // Handle JSON deserialization error
-                Serial.println("deserializeJson() failed");
+                Log.errorln("deserializeJson() failed");
             }
         } else {
             // Handle HTTP request error
-            Serial.printf("HTTP request failed, error: %s\n", http.errorToString(httpCode).c_str());
+            Log.errorln("HTTP request failed, error: %s\n", http.errorToString(httpCode).c_str());
         }
         http.end();
     }
+}
+
+void WebDataWidget::onLeave(bool force) {
 }
 
 String WebDataWidget::getName() {

@@ -20,10 +20,11 @@ public:
     using PreProcessCallback = std::function<void(int httpCode, String &response)>;
     using TaskExecCallback = std::function<void()>; // No parameters
 
-    Task(const String &url, ResponseCallback callback, TaskExecCallback taskExec, PreProcessCallback preProcess = nullptr)
-        : url(url), callback(callback), preProcessResponse(preProcess), taskExec(taskExec) {}
+    Task(const String &url, const String &filter, ResponseCallback callback, TaskExecCallback taskExec, PreProcessCallback preProcess = nullptr)
+        : url(url), filter(filter), callback(callback), preProcessResponse(preProcess), taskExec(taskExec) {}
 
     String url;
+    String filter;
     ResponseCallback callback;
     PreProcessCallback preProcessResponse;
     TaskExecCallback taskExec; // Required
@@ -40,6 +41,7 @@ public:
 
     struct TaskParams {
         String url;
+        String filter;
         ResponseCallback callback;
         PreProcessCallback preProcessResponse;
         TaskExecCallback taskExec; // Required
@@ -83,7 +85,7 @@ private:
 
     static TaskManager *instance;
 
-    static const uint16_t STACK_SIZE = 6000;
+    static const uint16_t STACK_SIZE = 6000; // 6000
     static const UBaseType_t TASK_PRIORITY = 1;
     static const UBaseType_t REQUEST_QUEUE_SIZE = 20;
     static const UBaseType_t REQUEST_QUEUE_ITEM_SIZE = sizeof(TaskParams *);

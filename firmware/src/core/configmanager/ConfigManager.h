@@ -78,6 +78,8 @@ public:
     // Retrieve a float configuration value, with a default fallback
     float getConfigFloat(const char *varName, float defaultValue);
 
+    void putConfigInt(const char *varName, int var);
+
     // Register callbacks for changes
     void addOnChangeCallback(
         const char *section,

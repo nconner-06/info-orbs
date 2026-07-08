@@ -16,20 +16,31 @@ WifiWidget::~WifiWidget() {}
 
 void WifiWidget::setup() {
     m_manager.setFont(DEFAULT_FONT);
-    m_manager.selectScreen(statusScreenIndex);
-    m_manager.clearScreen();
     m_manager.setFontColor(TFT_WHITE);
+
+    m_manager.fillSprite(TFT_BLACK);
     m_manager.drawCentreString("Connecting", ScreenCenterX, ScreenCenterY - lineHeight, fontSize);
+    m_manager.pushSprite(statusScreenIndex, 0, 0);
 
     // Hold right button when connecting to power to reset wifi settings
     // these are stored by the ESP WiFi library
     if (digitalRead(BUTTON_RIGHT_PIN) == Button::PRESSED_LEVEL) {
         m_wifiManager.resetSettings();
+        m_manager.fillSprite(TFT_BLACK);
         m_manager.drawCentreString("Wifi Settings reset", ScreenCenterX, ScreenCenterY + lineHeight, fontSize);
+        m_manager.pushSprite(statusScreenIndex, 0, 0);
         delay(messageDelay);
     }
 
+    // Set hostname to InfoOrbs-<last 6 digits of MAC address> so it can be found on the network
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    String hostname = "InfoOrbs-" + mac.substring(mac.length() - 6);
+    WiFi.softAPsetHostname(hostname.c_str());
+    m_wifiManager.setHostname(hostname);
     WiFi.mode(WIFI_STA); // For WiFiManager explicitly set mode to station, ESP defaults to STA+AP
+    WiFi.setTxPower(WIFI_POWER_18_5dBm);
+    WiFi.setSleep(false);
 
 #if (defined WIFI_SSID && defined WIFI_PASS)
     // Preload credentials from config.h
@@ -37,6 +48,7 @@ void WifiWidget::setup() {
 #endif
 
     // Remove unwanted buttons from the config portal
+    //    std::vector<const char *> wm_menu = {"wifi", "custom", "info", "restart"}; // buttons: wifi, info, exit, update
     std::vector<const char *> wm_menu = {"wifi", "param", "custom", "info", "restart"}; // buttons: wifi, info, exit, update
     // Remove unwanted buttons from the Info page
     m_wifiManager.setShowInfoUpdate(false);
@@ -59,15 +71,10 @@ void WifiWidget::setup() {
     m_apssid = "InfoOrbs";
 
     m_wifiManager.setCleanConnect(true);
-    m_wifiManager.setConnectRetries(5);
+    m_wifiManager.setConnectTimeout(3);
+    m_wifiManager.setConnectRetries(10);
 
-    // Set hostname to InfoOrbs-<last 6 digits of MAC address> so it can be found on the network
-    String mac = WiFi.macAddress();
-    mac.replace(":", "");
-    String hostname = "InfoOrbs-" + mac.substring(mac.length() - 6);
-    m_wifiManager.setHostname(hostname);
-
-    Log.noticeln("Hostname: %s", hostname.c_str());
+    Log.infoln("Hostname: %s", hostname.c_str());
 
     // WiFiManager automatically connects using saved credentials...
     if (m_wifiManager.autoConnect(m_apssid.c_str())) {
@@ -75,10 +82,11 @@ void WifiWidget::setup() {
     } else { // ...if connection fails (no saved credentials), it starts an access point with a WiFi setup portal at 192.168.4.1
         m_configPortalRunning = true;
         Log.infoln("Configuration portal running.");
-        m_manager.selectScreen(statusScreenIndex);
-        m_manager.clearScreen();
+        m_manager.fillSprite(TFT_BLACK);
         m_manager.drawCentreString("Configure", ScreenCenterX, ScreenCenterY - lineHeight, fontSize);
-        m_manager.selectScreen(statusScreenIndex + 1);
+        m_manager.pushSprite(statusScreenIndex, 0, 0);
+
+        m_manager.fillSprite(TFT_BLACK);
         m_manager.drawCentreString("Connect", ScreenCenterX, ScreenCenterY - lineHeight * 2, fontSize);
         m_manager.drawCentreString("phone or PC", ScreenCenterX, ScreenCenterY - lineHeight, fontSize);
         m_manager.drawCentreString("to WiFi network:", ScreenCenterX, ScreenCenterY, fontSize);
@@ -86,6 +94,8 @@ void WifiWidget::setup() {
         m_manager.drawCentreString(m_apssid, ScreenCenterX, ScreenCenterY + lineHeight, fontSize);
         m_manager.setFontColor(TFT_GREENYELLOW);
         m_manager.drawCentreString("192.168.4.1", ScreenCenterX, ScreenCenterY + lineHeight * 2, fontSize);
+        m_manager.pushSprite(statusScreenIndex + 1, 0, 0);
+        m_manager.setFontColor(TFT_WHITE);
     }
 }
 
@@ -128,32 +138,34 @@ void WifiWidget::update(bool force) {
 
 void WifiWidget::draw(bool force) {
     // Force is currently unhandled due to not knowing what behavior it would change
-    m_manager.selectScreen(statusScreenIndex);
-    const int blankRectTop = ScreenCenterY + lineHeight / 2;
+    m_manager.fillSprite(TFT_BLACK);
 
     if (!m_isConnected && !m_connectionFailed) {
-        m_manager.fillRect(0, blankRectTop, ScreenWidth, ScreenHeight - blankRectTop, TFT_BLACK);
+        m_manager.drawCentreString("Configure", ScreenCenterX, ScreenCenterY - lineHeight, fontSize);
         m_manager.drawCentreString(m_dotsString, ScreenCenterX, ScreenCenterY + lineHeight, fontSize);
+        m_manager.pushSprite(statusScreenIndex, 0, 0);
     } else if (m_isConnected && !m_hasDisplayedSuccess) {
         m_hasDisplayedSuccess = true;
-        m_manager.clearScreen();
         m_manager.drawCentreString("Success", ScreenCenterX, ScreenCenterY, fontSize);
-        m_manager.selectScreen(statusScreenIndex + 1);
-        m_manager.clearScreen();
+        m_manager.pushSprite(statusScreenIndex, 0, 0);
+
+        m_manager.fillSprite(TFT_BLACK);
         m_manager.drawCentreString("IP Address", ScreenCenterX, ScreenCenterY - lineHeight, fontSize);
         m_manager.drawCentreString(m_ipaddress, ScreenCenterX, ScreenCenterY + lineHeight, fontSize);
+        m_manager.pushSprite(statusScreenIndex + 1, 0, 0);
         Log.infoln("Connected to WiFi");
         delay(messageDelay);
     } else if (m_connectionFailed && !m_hasDisplayedError) {
         m_hasDisplayedError = true;
-        m_manager.fillRect(0, blankRectTop, ScreenWidth, ScreenHeight - blankRectTop, TFT_BLACK);
         m_manager.drawCentreString(m_connectionString, ScreenCenterX, ScreenCenterY + lineHeight, fontSize);
+        m_manager.pushSprite(statusScreenIndex, 0, 0);
         delay(messageDelay);
     }
 }
 
-void WifiWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
-}
+void WifiWidget::onLeave(bool force) {}
+
+void WifiWidget::buttonPressed(uint8_t buttonId, ButtonState state) {}
 
 void WifiWidget::connectionTimedOut() {
     switch (WiFi.status()) {

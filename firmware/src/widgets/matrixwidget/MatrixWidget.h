@@ -12,6 +12,7 @@ public:
     void setup() override;
     void update(bool force) override;
     void draw(bool force) override;
+    void onLeave(bool force = false) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 
@@ -27,5 +28,4 @@ private:
     int m_speedMax = 15;
     int m_updateInterval = 100;
 };
-
 #endif

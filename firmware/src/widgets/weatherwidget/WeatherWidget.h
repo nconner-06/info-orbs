@@ -7,11 +7,16 @@
 #include "config_helper.h"
 #include <TaskManager.h>
 
-#ifdef WEATHER_TEMPEST_FEED
+#if WEATHER_TEMPEST_FEED != false
     #include "feeds/TempestFeed.h"
-#else
+#endif
+#if WEATHER_VISUALCROSSING_FEED != false
     #include "feeds/VisualCrossingFeed.h"
 #endif
+#if WEATHER_OPENWEATHERMAP_FEED != false
+    #include "feeds/OpenWeatherMapFeed.h"
+#endif
+
 class WeatherWidget : public Widget {
 public:
     WeatherWidget(ScreenManager &manager, ConfigManager &config);
@@ -19,19 +24,18 @@ public:
     void setup() override;
     void update(bool force = false) override;
     void draw(bool force = false) override;
+    void onLeave(bool force = false) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 
 private:
     void displayClock(int displayIndex);
     void changeMode();
-    void displayClock(int displayIndex, uint32_t background, uint32_t textColor);
     void showJPG(int displayIndex, int x, int y, const byte jpgData[], int size, int scale);
     void drawWeatherIcon(int displayIndex, const String &condition, int x, int y, int scale);
     void singleWeatherDeg(int displayIndex);
     void weatherText(int displayIndex);
     void threeDayWeather(int displayIndex);
-    int getClockStamp();
     void configureColors();
     WeatherFeed *createWeatherFeed();
 
@@ -54,17 +58,10 @@ private:
     uint16_t m_invertedForegroundColor;
     uint16_t m_invertedBackgroundColor;
 
-#ifndef WEATHER_UPDATE_DELAY
-    #define WEATHER_UPDATE_DELAY TimeFrequency::TenMinutes
-#endif
-
-#ifndef WEATHER_DRAW_DELAY
-    #define WEATHER_DRAW_DELAY TimeFrequency::ThirtySeconds
-#endif
-
     const int centre = 120; // Centre location of the screen(240x240)
 
-    int m_clockStamp = 0;
+    bool m_showSecondTickW = false;
+    bool m_digitalClock = true;
 
     WeatherDataModel model;
     WeatherFeed *weatherFeed;
@@ -81,5 +78,13 @@ private:
 
     WidgetTimer &m_drawTimer;
     WidgetTimer &m_updateTimer;
+
+#ifndef WEATHER_UPDATE_DELAY
+    #define WEATHER_UPDATE_DELAY TimeFrequency::ThirtyMinutes
+#endif
+
+#ifndef WEATHER_DRAW_DELAY
+    #define WEATHER_DRAW_DELAY TimeFrequency::FiveHundredMilliseconds
+#endif
 };
 #endif // WEATHERWIDGET_H

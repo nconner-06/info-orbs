@@ -40,7 +40,7 @@
 #endif
 
 #ifndef PARQET_PROXY_URL
-    #define PARQET_PROXY_URL "https://parqet-proxy.ce-data.net/proxy"
+    #define PARQET_PROXY_URL "http://parqet-proxy.ce-data.net/proxy"
 #endif
 
 class ParqetWidget : public Widget {
@@ -49,6 +49,7 @@ public:
     void setup() override;
     void update(bool force = false) override;
     void draw(bool force = false) override;
+    void onLeave(bool force = false) override;
     void buttonPressed(uint8_t buttonId, ButtonState state) override;
     String getName() override;
 

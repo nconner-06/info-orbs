@@ -2,6 +2,7 @@
 
 #include "ParqetTranslations.h"
 #include <ArduinoJson.h>
+#include <ArduinoLog.h>
 #include <HTTPClient.h>
 #include <StreamUtils.h>
 #include <TaskFactory.h>
@@ -11,7 +12,8 @@ ParqetWidget::ParqetWidget(ScreenManager &manager, ConfigManager &config)
     : Widget(manager, config),
       m_drawTimer(addDrawRefreshFrequency(PARQET_DRAW_DELAY)),
       m_updateTimer(addUpdateRefreshFrequency(PARQET_UPDATE_DELAY)) {
-    Serial.printf("Constructing ParqetWidget, portfolioId=%s\n", m_portfolioId.c_str());
+    Log.infoln("Constructing ParqetWidget, portfolioId=%s", m_portfolioId.c_str());
+    m_time = GlobalTime::getInstance();
     m_enabled = (INCLUDE_PARQET == WIDGET_ON);
     m_config.addConfigBool("ParqetWidget", "pqEnabled", &m_enabled, t_enableWidget);
     m_config.addConfigString("ParqetWidget", "pqportfoId", &m_portfolioId, 50, t_pqPortfolioId);
@@ -29,7 +31,6 @@ ParqetWidget::ParqetWidget(ScreenManager &manager, ConfigManager &config)
 }
 
 void ParqetWidget::setup() {
-    m_time = GlobalTime::getInstance();
     m_holdingsDisplayFrom = 0;
 }
 
@@ -82,11 +83,14 @@ void ParqetWidget::draw(bool force) {
 
 void ParqetWidget::update(bool force) {
 
-    Serial.println("Update ParqetPortfolio");
+    Log.infoln("Update ParqetPortfolio");
     if (m_everDrawn && m_showClock) {
         displayClock(0, TFT_BLACK, TFT_WHITE, "Updating", TFT_RED);
     }
     updatePortfolio();
+}
+
+void ParqetWidget::onLeave(bool force) {
 }
 
 void ParqetWidget::buttonPressed(uint8_t buttonId, ButtonState state) {
@@ -140,23 +144,25 @@ void ParqetWidget::updatePortfolio() {
     if (m_portfolioId.empty() || m_proxyUrl.empty()) {
         return;
     }
-    Serial.printf("Parqet: Update Portfolio %s\n", m_portfolioId.c_str());
+    Log.infoln("Parqet: Update Portfolio %s\n", m_portfolioId.c_str());
     String httpRequestAddress = String(m_proxyUrl.c_str());
     httpRequestAddress += "?id=" + String(m_portfolioId.c_str()) + "&timeframe=" + getTimeframe() + "&perf=" + getPerfMeasure() + "&perfChart=" + getPerfChartMeasure();
 
+    String filter = "";
+
     auto task = TaskFactory::createHttpGetTask(
-        httpRequestAddress, [this](int httpCode, const String &response) {
+        httpRequestAddress, filter, [this](int httpCode, const String &response) {
             processResponse(httpCode, response);
         });
 
     if (!task) {
-        Serial.println("Failed to create parqet task");
+        Log.errorln("Failed to create parqet task");
         return;
     }
 
     bool success = TaskManager::getInstance()->addTask(std::move(task));
     if (!success) {
-        Serial.println("Failed to add parqet task");
+        Log.errorln("Failed to add parqet task");
         return;
     }
 }
@@ -237,12 +243,11 @@ void ParqetWidget::processResponse(int httpCode, const String &response) {
 
         } else {
             // Handle JSON deserialization error
-            Serial.println("deserializeJson() failed");
-            Serial.println(error.c_str());
+            Log.errorln("deserializeJson() failed: %s", error.c_str());
         }
     } else {
         // Handle HTTP request error
-        Serial.printf("HTTP request failed, error: %d\n", httpCode);
+        Log.errorln("HTTP request failed, error: %d\n", httpCode);
     }
 
     PARQET_DEBUG_PRINT_MEM("Parqet portfolio update complete");
@@ -251,17 +256,15 @@ void ParqetWidget::processResponse(int httpCode, const String &response) {
 }
 
 void ParqetWidget::clearScreen(int8_t displayIndex, int32_t background) {
-    m_manager.selectScreen(displayIndex);
-    m_manager.fillScreen(background);
+    m_manager.fillSprite(background);
+    m_manager.pushSprite(displayIndex, 0, 0);
 }
 
 void ParqetWidget::displayClock(int8_t displayIndex, uint32_t background, uint32_t color, String extra, uint32_t extraColor) {
-    // Serial.printf("displayClock at screen %d\n", displayIndex);
-    m_manager.selectScreen(displayIndex);
-
+    // Log.infoln("displayClock at screen %d\n", displayIndex);
     int clky = 105;
 
-    m_manager.fillScreen(background);
+    m_manager.fillSprite(background);
     m_manager.setFontColor(color);
     m_manager.drawString(m_time->getDayAndMonth(), ScreenCenterX, clky + 60, 16, Align::MiddleCenter);
 
@@ -276,12 +279,12 @@ void ParqetWidget::displayClock(int8_t displayIndex, uint32_t background, uint32
     m_manager.fillRect(0, 190, 240, 50, extraColor);
     const String timeframe = i18nStr(t_pqTimeframes, m_curMode);
     m_manager.drawString(timeframe, ScreenCenterX, 210, 16, Align::MiddleCenter);
+    m_manager.pushSprite(displayIndex, 0, 0);
 }
 
 void ParqetWidget::displayStock(int8_t displayIndex, ParqetHoldingDataModel &stock, uint32_t backgroundColor, uint32_t textColor) {
     PARQET_DEBUG_PRINT("displayStock(): display=%d, stock=%s", displayIndex, stock.getName().c_str());
-    m_manager.selectScreen(displayIndex);
-    m_manager.fillScreen(backgroundColor);
+    m_manager.fillSprite(backgroundColor);
     m_manager.setFontColor(textColor);
 
     m_manager.drawString(stock.getCurrency(), ScreenCenterX, 27, 15, Align::MiddleCenter);
@@ -307,12 +310,12 @@ void ParqetWidget::displayStock(int8_t displayIndex, ParqetHoldingDataModel &sto
         int xOffset = (240 - (spaceInBetween + 1) * (chartDataCount - 1)) / 2;
         m_portfolio.getChartDataScale(chartHeight, scale, minVal, maxVal, chartMinVal);
         int zeroAtY = endLine + round(chartMinVal * scale);
-        // Serial.printf("Scale: %f, minVal: %f, maxVal: %f, zeroAtY: %d, siB=%d, xOff=%d\n", scale, minVal, maxVal, zeroAtY, spaceInBetween, xOffset);
+        // Log.infoln("Scale: %f, minVal: %f, maxVal: %f, zeroAtY: %d, siB=%d, xOff=%d\n", scale, minVal, maxVal, zeroAtY, spaceInBetween, xOffset);
         for (int i = 0; i < chartDataCount; i++) {
             int x = (spaceInBetween + 1) * i + xOffset;
             int y = zeroAtY - round(chartData[i] * scale);
             bool positive = chartData[i] >= 0;
-            // Serial.printf("Drawing line %d, v=%f, @ %d/%d\n", i, chartData[i], x, y);
+            // Log.infoln("Drawing line %d, v=%f, @ %d/%d\n", i, chartData[i], x, y);
             if (spaceInBetween == 0) {
                 // Draw one line
                 m_manager.drawLine(x, zeroAtY, x, y, positive ? TFT_DARKGREEN : TFT_RED);
@@ -331,7 +334,7 @@ void ParqetWidget::displayStock(int8_t displayIndex, ParqetHoldingDataModel &sto
                     h *= -1;
                     myY -= h;
                 }
-                // Serial.printf("Drawing rect %d, v=%f, @ %d/%d/%d/%d\n", i, chartData[i], x - spaceInBetween/2, myY, spaceInBetween, h);
+                // Log.infoln("Drawing rect %d, v=%f, @ %d/%d/%d/%d\n", i, chartData[i], x - spaceInBetween/2, myY, spaceInBetween, h);
                 m_manager.fillRect(x - spaceInBetween / 2, myY, spaceInBetween, h, positive ? TFT_DARKGREEN : TFT_RED);
             }
         }
@@ -339,7 +342,7 @@ void ParqetWidget::displayStock(int8_t displayIndex, ParqetHoldingDataModel &sto
         m_manager.fillRect(0, zeroAtY - 1, 240, 3, TFT_WHITE);
         int minAtY = zeroAtY - round(minVal * scale);
         int maxAtY = zeroAtY - round(maxVal * scale);
-        // Serial.printf("min/max lines would be at %d/%d\n", minAtY, maxAtY);
+        // Log.infoln("min/max lines would be at %d/%d\n", minAtY, maxAtY);
         if (zeroAtY < minAtY - 15 || zeroAtY > minAtY) {
             // Show minVal if the zero line is not interfering
             m_manager.drawLine(0, minAtY, 240, minAtY, TFT_DARKGREY);
@@ -380,6 +383,7 @@ void ParqetWidget::displayStock(int8_t displayIndex, ParqetHoldingDataModel &sto
     m_manager.fillRect(0, 176, ScreenWidth, 5, stockColor);
     m_manager.drawArc(120, 120, 120, 115, 0, 360, stockColor, backgroundColor);
     m_manager.drawString(stock.getPerformance(2) + "%", ScreenCenterX, 205, 22, Align::MiddleCenter);
+    m_manager.pushSprite(displayIndex, 0, 0);
 }
 
 String ParqetWidget::getName() {

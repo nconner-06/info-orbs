@@ -2,9 +2,12 @@
 #define CONFIG_SYSTEM_H
 
 #undef ILI9341_DRIVER
-#define GC9A01_DRIVER
-
-#define TFT_SDA_READ
+#ifndef GC9A01_DRIVER
+    #define GC9A01_DRIVER
+#endif
+// #ifndef TFT_SDA_READ
+// #define TFT_SDA_READ
+// #endif
 
 // Default pin values
 // Pins can be overridden in platformio.ini build_flags section e.g. -D TFT_MOSI=23
@@ -52,29 +55,70 @@
 #ifndef BUTTON_RIGHT_PIN
     #define BUTTON_RIGHT_PIN 14
 #endif
-
 #ifndef BUTTON_DEBOUNCE_TIME
     #define BUTTON_DEBOUNCE_TIME 35 // Debounce buttons for X ms
 #endif
-
 #ifndef BUTTON_MEDIUM_PRESS_TIME
     #define BUTTON_MEDIUM_PRESS_TIME 500 // Medium press is registered after X ms
 #endif
-
 #ifndef BUTTON_LONG_PRESS_TIME
     #define BUTTON_LONG_PRESS_TIME 2000 // Long press is registered after X ms
 #endif
-
 #ifndef BUTTON_VERY_LONG_PRESS_TIME
     #define BUTTON_VERY_LONG_PRESS_TIME 15000 // 15 seconds
 #endif
-
 #ifndef BUTTON_MODE
     #define BUTTON_MODE INPUT_PULLDOWN
 #endif
-
 #ifndef BUSY_PIN
     #define BUSY_PIN 2
+#endif
+#ifndef ROTARY_PIN1
+    #define ROTARY_PIN1 40
+#endif
+#ifndef ROTARY_PIN2
+    #define ROTARY_PIN2 39
+#endif
+#ifndef ROTARY_PIN3
+    #define ROTARY_PIN3 3
+#endif
+
+// LED_TYPE 0 = led, 1 = WS2812
+#ifndef LED_TYPE
+    #define LED_TYPE 0
+#endif
+#ifndef LED_COLOR
+    #define LED_COLOR 0x001F
+#endif
+
+// Ambient light sensing for auto dimming. Must have photoresistor hardware mod.
+// This entails wiring a GL5537 photoresistor between GPIO34 and 3.3v; and a
+// 22K resistor between GPIO34 and gnd.
+#ifndef LIGHT_SENSE_PIN
+    #define LIGHT_SENSE_PIN 34
+#endif
+#ifndef LIGHT_MIN
+    #define LIGHT_MIN 0 // (0-4095)
+#endif
+#ifndef LIGHT_MAX
+    #define LIGHT_MAX 4095 // (0-4095)
+#endif
+
+// Pins for the SD card
+#ifndef SD_MISO
+    #define SD_MISO = 13
+#endif
+
+#ifndef SD_CLK
+    #define SD_CLK = 12
+#endif
+
+#ifndef SD_MOSI
+    #define SD_MOSI = 11
+#endif
+
+#ifndef SD_CS
+    #define SD_CS = 10
 #endif
 
 #ifndef NTP_SERVER
@@ -84,7 +128,7 @@
 // Maximum number of enabled widgets
 // The ESP might run out of memory if this is set too high
 #ifndef MAX_WIDGETS
-    #define MAX_WIDGETS 7
+    #define MAX_WIDGETS 12
 #endif
 
 #ifndef SCREEN_SIZE
@@ -112,7 +156,7 @@
 #endif
 
 #ifndef TIMEZONE_API_URL
-    #define TIMEZONE_API_URL "https://timeapi.io/api/timezone/zone"
+    #define TIMEZONE_API_URL "http://timeapi.io/api/timezone/zone"
 #endif
 
 #ifndef TIMEZONE_API_LOCATION
@@ -156,6 +200,18 @@
 #endif
 #ifndef INCLUDE_MATRIXSCREEN
     #define INCLUDE_MATRIXSCREEN WIDGET_OFF
+#endif
+#ifndef INCLUDE_SPORT
+    #define INCLUDE_SPORT WIDGET_OFF
+#endif
+#ifndef INCLUDE_PLANE_RADAR
+    #define INCLUDE_PLANE_RADAR WIDGET_OFF
+#endif
+#ifndef INCLUDE_RADIO
+    #define INCLUDE_RADIO WIDGET_OFF
+#endif
+#ifndef INCLUDE_MP3
+    #define INCLUDE_MP3 WIDGET_OFF
 #endif
 
 // CLOCK WIDGET SETTINGS
@@ -230,11 +286,29 @@
 #endif
 
 // STOCK WIDGET SETTINGS
+#ifndef STOCK_API_URL
+    #define STOCK_API_URL "https://api.twelvedata.com/quote"
+#endif
+#ifndef STOCK_API_KEY
+    #define STOCK_API_KEY "e03fc53524454ab8b65d91b23c669cc5"
+#endif
 #ifndef STOCK_TICKER_LIST
     #define STOCK_TICKER_LIST "BTC/USD,USD/CAD,XEQT,SPY,APC&country=Germany"
 #endif
 #ifndef STOCK_CHANGE_FORMAT
     #define STOCK_CHANGE_FORMAT 0
+#endif
+
+#ifndef SPORT_API_URL
+    #define SPORT_API_URL "https://site.api.espn.com/apis/site/v2/sports/"
+#endif
+
+#ifndef RADAR1_API_URL
+    #define RADAR1_API_URL "https://opendata.adsb.fi/api/v3/lat/"
+#endif
+
+#ifndef RADAR2_API_URL
+    #define RADAR2_API_URL "https://api.adsbdb.com/v0/callsign/"
 #endif
 
 #endif
