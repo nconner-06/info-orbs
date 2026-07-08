@@ -1,0 +1,83 @@
+MQTT test - gauges
+
+Topic : info-orbs/setup/orbs
+
+Publish as json
+{
+  "orbs": [
+    {
+      "orbid": 0,
+      "topicsrc": "info_orbs/orb0",
+      "drawscript": 1
+    },
+    {
+      "orbid": 1,
+      "topicsrc": "info_orbs/orb1",
+      "drawscript": 1
+    },
+    {
+      "orbid": 2,
+      "topicsrc": "info_orbs/orb2",
+      "drawscript": 1
+    },
+    {
+      "orbid": 3,
+      "topicsrc": "info_orbs/orb3",
+      "drawscript": 1
+    },
+    {
+      "orbid": 4,
+      "topicsrc": "info_orbs/orb4",
+      "drawscript": 1
+    }
+  ]
+}
+
+
+Publish as raw:
+
+Topic : info_orbs/orb0
+fo,default
+f,black
+focol,white
+t,63,120,90,45,mc
+focol,yellow
+t,Amps,120,150,25,mc
+sa,120,120,120,100,30,200,red,black,true
+sa,120,120,90,70,30,120,blue,black,true
+
+Topic : info_orbs/orb1
+fo,default
+f,black
+focol,white
+t,21,120,90,50,mc
+focol,yellow
+t,Ohms,120,150,30,mc
+sa,120,120,120,100,30,75,yellow,black,true
+
+Topic: info_orbs/orb2
+fo,default
+f,black
+focol,white
+t,42,120,90,50,mc
+focol,yellow
+t,Volts,120,150,30,mc
+sa,120,120,120,100,30,150,green,black,true
+
+Topic: info_orbs/orb3
+fo,default
+f,black
+focol,white
+t,79,120,90,50,mc
+focol,yellow
+t,L/hr,120,150,30,mc
+sa,120,120,120,100,30,230,blue,black,true
+
+Topic: info_orbs/orb4
+fo,default
+f,darkgreen
+focol,white
+t,57,120,90,50,mc
+focol,yellow
+t,kph,120,150,30,mc
+sa,120,120,120,100,30,190,skyblue,black,true
