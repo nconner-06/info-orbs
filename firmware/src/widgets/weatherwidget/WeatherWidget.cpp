@@ -24,6 +24,7 @@ WeatherWidget::WeatherWidget(ScreenManager &manager, ConfigManager &config)
     m_enabled = (INCLUDE_WEATHER == WIDGET_ON);
     m_time = GlobalTime::getInstance();
     m_config.addConfigBool("WeatherWidget", "weatherEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("WeatherWidget", "weatherDefault", &m_default, t_defaultWidget);
     weatherFeed = createWeatherFeed();
     weatherFeed->setupConfig(config); // allow feed to add its own config
     m_config.addConfigBool("WeatherWidget", "showSecondTickW", &m_showSecondTickW, t_ShowSecondTick, false);
