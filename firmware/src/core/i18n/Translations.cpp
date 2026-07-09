@@ -62,6 +62,12 @@ constexpr Translation t_enableWidget = {
     "Activer le widget" // FR
 };
 
+constexpr Translation t_defaultWidget = {
+    "Default Widget", // EN
+    "", // DE
+    "" // FR
+};
+
 constexpr Translation t_timezoneLoc = {
     "Timezone, use one from <a href='https://timezonedb.com/time-zones' target='blank'>this list</a>", // EN
     "Zeitzone, verwenden Sie eine aus <a href='https://timezonedb.com/time-zones' target='blank'>dieser Liste</a>", // DE

@@ -5,6 +5,7 @@
 MatrixWidget::MatrixWidget(ScreenManager &manager, ConfigManager &config) : Widget(manager, config) {
     m_enabled = (INCLUDE_MATRIXSCREEN == WIDGET_ON);
     m_config.addConfigBool("MatrixWidget", "mtxEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("MatrixWidget", "mtxDefault", &m_default, t_defaultWidget);
     m_config.addConfigBool("MatrixWidget", "mtxBigFont", &m_bigFont, t_matrixBigFont, false);
     m_config.addConfigColor("MatrixWidget", "mtxTextColor", &m_textColor, t_matrixTextColor, false);
     m_config.addConfigColor("MatrixWidget", "mtxHeadTxColor", &m_headTextColor, t_matrixHeadTextColor, false);

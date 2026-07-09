@@ -10,6 +10,7 @@ PlaneRadarWidget::PlaneRadarWidget(ScreenManager &manager, ConfigManager &config
                                                                                     m_updateTimer(addUpdateRefreshFrequency(PLANE_RADAR_UPDATE_DELAY)) {
     m_enabled = (INCLUDE_PLANE_RADAR == WIDGET_ON);
     m_config.addConfigBool("PlaneRadarWid", "planeEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("PlaneRadarWid", "planeDefault", &m_default, t_defaultWidget);
     m_config.addConfigFloat("PlaneRadarWid", "planeLat", &m_configLat, t_radarLat);
     m_config.addConfigFloat("PlaneRadarWid", "planeLon", &m_configLon, t_radarLong);
     m_config.addConfigComboBox("PlaneRadarWid", "planeRange", &m_rangeIndex, t_cycleRanges, t_cycleRange);

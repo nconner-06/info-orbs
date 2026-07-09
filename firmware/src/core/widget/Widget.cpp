@@ -34,6 +34,13 @@ void Widget::setEnabled() {
     m_enabled = true;
 }
 
+bool Widget::isDefault() {
+    return m_default;
+}
+
+void Widget::setDefault() {
+    m_default = true;
+}
 bool Widget::isItTimeToDraw() {
     if (m_drawTimer) {
         return m_drawTimer->isDue();

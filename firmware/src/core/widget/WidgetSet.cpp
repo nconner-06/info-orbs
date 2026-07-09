@@ -17,6 +17,8 @@ void WidgetSet::add(Widget *widget) {
     if (widget->isEnabled()) {
         m_enabledWidgets++;
         m_widgets[m_widgetCount]->setup();
+        if (m_currentWidget == 0 && widget->isDefault())
+            m_currentWidget = m_widgetCount;
     }
     m_widgetCount++;
 }

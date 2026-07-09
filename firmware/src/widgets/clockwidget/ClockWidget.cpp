@@ -17,6 +17,7 @@ ClockWidget::~ClockWidget() {
 
 void ClockWidget::addConfigToManager() {
     m_config.addConfigBool("ClockWidget", "clkEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("ClockWidget", "clkDefault", &m_default, t_defaultWidget);
 
     String optClockType[3 + USE_CLOCK_CUSTOM] = {
         i18nStr(t_clockNormal),

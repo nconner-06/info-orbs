@@ -13,6 +13,7 @@ SportWidget::SportWidget(ScreenManager &manager, ConfigManager &config)
     m_time = GlobalTime::getInstance();
 
     m_config.addConfigBool("SportWidget", "SportEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("SportWidget", "SportDefault", &m_default, t_defaultWidget);
     m_config.addConfigComboBox("SportWidget", "SportLeague", &m_league, t_LeagueOptions, t_League, false);
     m_config.addConfigComboBox("SportWidget", "SportPeriod", &m_period, t_RangeOptions, t_Range, false);
     m_config.addConfigInt("SportWidget", "SportStart", &m_startRange, t_StartRange, true);

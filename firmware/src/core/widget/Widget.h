@@ -26,6 +26,8 @@ public:
 
     bool isEnabled();
     void setEnabled();
+    bool isDefault();
+    void setDefault();
 
     bool isItTimeToDraw();
     bool isItTimeToUpdate();
@@ -38,6 +40,7 @@ protected:
     ScreenManager &m_manager;
     ConfigManager &m_config;
     bool m_enabled = false;
+    bool m_default = false;
 
     WidgetTimer *m_drawTimer = nullptr;
     WidgetTimer *m_updateTimer = nullptr;

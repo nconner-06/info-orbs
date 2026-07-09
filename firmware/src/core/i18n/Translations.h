@@ -17,6 +17,7 @@ extern Translation t_loadingData;
 extern Translation t_error;
 extern Translation t_invalid;
 extern Translation t_enableWidget;
+extern Translation t_defaultWidget;
 extern Translation t_timezoneLoc;
 extern Translation t_language;
 extern Translation t_widgetCycleDelay;

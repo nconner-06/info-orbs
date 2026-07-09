@@ -11,6 +11,7 @@ FiveZoneWidget::FiveZoneWidget(ScreenManager &manager, ConfigManager &config) : 
     m_time = GlobalTime::getInstance();
 
     m_config.addConfigBool("FiveZoneWidget", "5zoEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("FiveZoneWidget", "5zoDefault", &m_default, t_defaultWidget);
     m_config.addConfigBool("FiveZoneWidget", "showBizHours", &m_showBizHours, t_5zoneShowBizHours, false);
     m_config.addConfigBool("FiveZoneWidget", "showSecondTick", &m_showSecondTick, t_clockShowSecondTick, false);
     String optOrg[] = {"0", "1", "2", "3", "4", "5"};

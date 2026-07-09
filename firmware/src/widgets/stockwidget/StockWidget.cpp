@@ -14,6 +14,7 @@ StockWidget::StockWidget(ScreenManager &manager, ConfigManager &config)
     m_time = GlobalTime::getInstance();
 
     m_config.addConfigBool("StockWidget", "stocksEnabled", &m_enabled, t_enableWidget);
+    m_config.addConfigBool("StockWidget", "stockDefault", &m_default, t_defaultWidget);
     m_config.addConfigString("StockWidget", "stockList", &m_stockList, 200, t_stockList);
     char stockList[m_stockList.size()];
     strcpy(stockList, m_stockList.c_str());
