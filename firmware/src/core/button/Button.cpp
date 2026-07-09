@@ -14,7 +14,7 @@ void Button::begin(uint8_t pin) {
     pinMode(m_pin, BUTTON_MODE);
 }
 
-void Button::isrButtonChange() {
+void IRAM_ATTR Button::isrButtonChange() {
     if (millis() - m_lastPinLevelChange < DEBOUNCE_TIME) {
         return;
     }

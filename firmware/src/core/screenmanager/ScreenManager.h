@@ -1,5 +1,6 @@
 #ifndef SCREENMANAGER_H
 #define SCREENMANAGER_H
+#include <Arduino.h>
 
 // Include any necessary libraries here
 #include "config_helper.h"

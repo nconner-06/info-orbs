@@ -45,9 +45,9 @@ void MainHelper::init(WiFiManager *wm, ConfigManager *cm, ScreenManager *sm, Wid
 /**
  * The ISR handlers must be static
  */
-void MainHelper::isrButtonChangeLeft() { buttonLeft.isrButtonChange(); }
-void MainHelper::isrButtonChangeMiddle() { buttonMiddle.isrButtonChange(); }
-void MainHelper::isrButtonChangeRight() { buttonRight.isrButtonChange(); }
+void IRAM_ATTR MainHelper::isrButtonChangeLeft() { buttonLeft.isrButtonChange(); }
+void IRAM_ATTR MainHelper::isrButtonChangeMiddle() { buttonMiddle.isrButtonChange(); }
+void IRAM_ATTR MainHelper::isrButtonChangeRight() { buttonRight.isrButtonChange(); }
 
 void MainHelper::setupButtons() {
     bool invertButtons = s_orbRotation == 1 || s_orbRotation == 2;
